@@ -1,0 +1,301 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Foydalanuvchi rollari
+enum UserRole {
+  ADMIN
+  EMPLOYEE
+}
+
+/// Davomat holati
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EARLY_LEAVE
+  HOLIDAY
+  SICK_LEAVE
+  ON_LEAVE
+}
+
+/// Dam olish kunlari turi
+enum LeaveType {
+  SICK
+  VACATION
+  PERSONAL
+  OTHER
+}
+
+/// Dam olish arizasi holati
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Ish jadvali turi
+enum ScheduleType {
+  FIXED
+  SHIFT
+  FLEXIBLE
+}
+
+// ============================================================
+// Foydalanuvchilar / Xodimlar
+// ============================================================
+
+model User {
+  id               String       @id @default(uuid())
+  telegramId       String       @unique
+  email            String?      @unique
+  passwordHash     String?
+  firstName        String
+  lastName         String?
+  username         String?
+  phoneNumber      String?
+  photoUrl         String?
+  role             UserRole     @default(EMPLOYEE)
+  isActive         Boolean      @default(true)
+  employeeId       String?      @unique
+  departmentId     String?
+  faceTemplate     String?
+  faceTemplateData Json?
+
+  department       Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  schedule         Schedule?
+  attendances      Attendance[]
+  leaveRequests    LeaveRequest[]
+  auditLogs        AuditLog[]
+  refreshTokens    RefreshToken[]
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([telegramId])
+  @@index([employeeId])
+  @@index([departmentId])
+  @@index([role])
+  @@map("users")
+}
+
+// ============================================================
+// Bo'limlar / Sektorlar
+// ============================================================
+
+model Department {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  description String?
+  isActive    Boolean      @default(true)
+
+  users       User[]
+  workLocations WorkLocation[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("departments")
+}
+
+// ============================================================
+// Ish joyi lokatsiyalari (Geofencing)
+// ============================================================
+
+model WorkLocation {
+  id           String     @id @default(uuid())
+  name         String
+  latitude     Float
+  longitude    Float
+  radiusMeters Int        @default(100)
+  isActive     Boolean    @default(true)
+
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  departmentId String?
+
+  attendances  Attendance[]
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("work_locations")
+}
+
+// ============================================================
+// Ish jadvali
+// ============================================================
+
+model Schedule {
+  id            String       @id @default(uuid())
+  userId        String       @unique
+  scheduleType  ScheduleType @default(FIXED)
+  startTime     String       @default("09:00")
+  endTime       String       @default("18:00")
+  workDays      Int[]        @default([1, 2, 3, 4, 5])
+  // shiftName faqat SHIFT jadvali uchun
+  shiftName     String?
+  // flexibleStart/End faqat FLEXIBLE uchun
+  flexibleStart String?
+  flexibleEnd   String?
+  isActive      Boolean      @default(true)
+
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("schedules")
+}
+
+// ============================================================
+// Davomat
+// ============================================================
+
+model Attendance {
+  id              String           @id @default(uuid())
+  userId          String
+  workDate        DateTime         @default(now())
+  scheduleStart   String
+  scheduleEnd     String
+  checkInTime     DateTime?
+  checkOutTime    DateTime?
+  workedHours     Float            @default(0)
+  lateMinutes     Int              @default(0)
+  earlyLeaveMinutes Int            @default(0)
+  overtimeHours   Float            @default(0)
+  status          AttendanceStatus @default(ABSENT)
+
+  // Tekshiruv ma'lumotlari
+  checkInLatitude  Float?
+  checkInLongitude Float?
+  checkOutLatitude Float?
+  checkOutLongitude Float?
+  faceVerified     Boolean         @default(false)
+  livenessVerified Boolean         @default(false)
+  gpsVerified      Boolean         @default(false)
+
+  // Qaysi lokatsiyada tekshirildi
+  workLocationId   String?
+
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workLocation     WorkLocation?   @relation(fields: [workLocationId], references: [id], onDelete: SetNull)
+
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([workDate])
+  @@index([userId, workDate])
+  @@index([status])
+  @@map("attendances")
+}
+
+// ============================================================
+// Dam olish va ta'til arizalari
+// ============================================================
+
+model LeaveRequest {
+  id          String      @id @default(uuid())
+  userId      String
+  leaveType   LeaveType
+  startDate   DateTime
+  endDate     DateTime
+  reason      String?
+  status      LeaveStatus @default(PENDING)
+  approvedBy  String?
+  rejectedReason String?
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("leave_requests")
+}
+
+// ============================================================
+// Bayram kunlari
+// ============================================================
+
+model Holiday {
+  id          String   @id @default(uuid())
+  name        String
+  date        DateTime
+  description String?
+  isRecurring Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([date, isRecurring])
+  @@map("holidays")
+}
+
+// ============================================================
+// Audit log
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  entity     String
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// Refresh tokenlar
+// ============================================================
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ============================================================
+// Google Sheets sinxronizatsiya konfiguratsiyasi
+// ============================================================
+
+model GoogleSheetsConfig {
+  id                String   @id @default(uuid())
+  spreadsheetId     String
+  sheetName         String   @default("Davomat")
+  lastSyncAt        DateTime?
+  isActive          Boolean  @default(true)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("google_sheets_config")
+}
