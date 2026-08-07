@@ -295,7 +295,7 @@ export default function AdminReportsPage() {
                           <span className="text-green-600 font-medium">{emp.presentDays || 0}</span>
                         </td>
                         <td className="px-4 py-3 text-sm text-center">
-                          {emp.absentDays > 0 ? (
+                          {(emp.absentDays ?? 0) > 0 ? (
                             <span className="text-red-600 font-medium">{emp.absentDays}</span>
                           ) : (
                             <span className="text-gray-400">0</span>

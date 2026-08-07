@@ -1,25 +1,26 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { useFaceDetection } from '@/hooks/useFaceDetection';
+import { useFaceDetection, evaluateBlink, evaluateMotion } from '@/hooks/useFaceDetection';
 import { faceApi } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Camera, RotateCcw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Camera, RotateCcw, CheckCircle, XCircle, Loader2, ScanFace } from 'lucide-react';
 
 interface Props {
   mode: 'verify' | 'register';
-  onSuccess?: (data: { descriptor: number[]; image?: string }) => void;
+  onSuccess?: (data: { descriptor: number[]; image?: string; livenessVerified: boolean }) => void;
   onError?: (error: unknown) => void;
 }
 
 export function FaceVerification({ mode, onSuccess, onError }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const { status: faceStatus, error: modelError, extractDescriptor } = useFaceDetection();
+  const { status: faceStatus, error: modelError, extractDescriptor, captureLivenessSequence } = useFaceDetection();
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isCheckingLiveness, setIsCheckingLiveness] = useState(false);
   const [result, setResult] = useState<{ verified: boolean; confidence: number; message?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -67,6 +68,36 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
     setIsVideoReady(true);
   }, []);
 
+  const runLivenessCheck = useCallback(async (video: HTMLVideoElement): Promise<boolean> => {
+    setIsCheckingLiveness(true);
+    try {
+      const frames = await captureLivenessSequence(video);
+
+      if (frames.length < 5) {
+        // Kamera/yuz barqaror aniqlanmadi - xavfsizlik uchun rad etamiz
+        return false;
+      }
+
+      const blink = evaluateBlink(frames);
+      const motion = evaluateMotion(frames);
+      const clientLive = blink.blinked || motion.moved;
+
+      // Backenddagi mavjud /api/face/liveness bilan ham tasdiqlaymiz (ikkinchi signal)
+      let serverLive = true;
+      try {
+        const { data } = await faceApi.detectLiveness({ movementData: frames.map((f) => f.vector) } as any);
+        serverLive = (data.data || data)?.isLive !== false;
+      } catch {
+        // Backend tekshiruvi ishlamasa, mijoz tomonidagi natijaga tayanamiz
+        serverLive = true;
+      }
+
+      return clientLive && serverLive;
+    } finally {
+      setIsCheckingLiveness(false);
+    }
+  }, [captureLivenessSequence]);
+
   const captureAndVerify = useCallback(async () => {
     const video = videoRef.current;
     if (!video || video.videoWidth === 0) {
@@ -94,8 +125,6 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
       canvas.getContext('2d')?.drawImage(video, 0, 0);
       const imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
 
-      stopCamera();
-
       let responseData;
       if (mode === 'verify') {
         try {
@@ -117,6 +146,24 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
         responseData = data.data || data;
       }
 
+      const faceOk = responseData.verified !== false;
+      let livenessVerified = false;
+
+      // Yuz mos kelgandagina tiriklik (anti-spoofing) tekshiruvini o'tkazamiz -
+      // kamera hali yopilmagan, video oqimi davom etmoqda
+      if (faceOk && mode === 'verify') {
+        livenessVerified = await runLivenessCheck(video);
+        if (!livenessVerified) {
+          responseData.verified = false;
+          responseData.message = 'Tiriklik tekshiruvidan o\'tmadi. Iltimos ko\'zingizni yuming yoki boshingizni sal harakatlantiring.';
+        }
+      } else if (mode === 'register') {
+        // Ro'yxatdan o'tishda tiriklik shart emas, faqat yuz saqlanadi
+        livenessVerified = true;
+      }
+
+      stopCamera();
+
       setResult({
         verified: responseData.verified !== false,
         confidence: responseData.similarity || responseData.confidence || 0,
@@ -124,7 +171,7 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
       });
 
       if (responseData.verified !== false) {
-        onSuccess?.({ descriptor: descArray, image: imageBase64 });
+        onSuccess?.({ descriptor: descArray, image: imageBase64, livenessVerified });
       } else {
         onError?.(responseData);
       }
@@ -133,10 +180,11 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
       setError(msg);
       toast.error(msg);
       onError?.(err);
+      stopCamera();
     } finally {
       setIsProcessing(false);
     }
-  }, [extractDescriptor, mode, stopCamera, onSuccess, onError]);
+  }, [extractDescriptor, mode, stopCamera, onSuccess, onError, runLivenessCheck]);
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -184,9 +232,15 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
             <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover"
               onPlay={onVideoPlay} />
             {(!isVideoReady || isProcessing) && isStreaming && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 px-4 text-center">
                 <Loader2 className="w-6 h-6 text-white animate-spin" />
-                <span className="text-white text-sm ml-2">{isProcessing ? 'Tahlil qilinmoqda...' : 'Kamera sozlanmoqda...'}</span>
+                <span className="text-white text-sm">
+                  {isCheckingLiveness
+                    ? "Ko'zingizni yuming yoki boshingizni sal harakatlantiring..."
+                    : isProcessing
+                    ? 'Tahlil qilinmoqda...'
+                    : 'Kamera sozlanmoqda...'}
+                </span>
               </div>
             )}
           </div>
@@ -194,8 +248,14 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
           {isStreaming && !cameraError && !result && (
             <button onClick={captureAndVerify} disabled={!isVideoReady || isProcessing}
               className="btn-primary gap-2">
-              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera size={18} />}
-              {isProcessing ? 'Tahlil qilinmoqda...' : isVideoReady ? 'Rasmga olish' : 'Kamera tayyorlanmoqda...'}
+              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanFace size={18} />}
+              {isCheckingLiveness
+                ? 'Tiriklik tekshirilmoqda...'
+                : isProcessing
+                ? 'Tahlil qilinmoqda...'
+                : isVideoReady
+                ? 'Rasmga olish'
+                : 'Kamera tayyorlanmoqda...'}
             </button>
           )}
 

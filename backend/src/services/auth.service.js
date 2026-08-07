@@ -69,54 +69,40 @@ const telegramLogin = async (telegramData) => {
 
   let user = await prisma.user.findUnique({ where: { telegramId } });
 
-  if (user) {
-    user = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        username: username || user.username,
-        photoUrl: photo_url || user.photoUrl,
-      },
-      select: {
-        id: true,
-        telegramId: true,
-        firstName: true,
-        lastName: true,
-        username: true,
-        phoneNumber: true,
-        photoUrl: true,
-        role: true,
-        isActive: true,
-        employeeId: true,
-        departmentId: true,
-        department: { select: { id: true, name: true } },
-      },
-    });
-  } else {
-    user = await prisma.user.create({
-      data: {
-        telegramId,
-        firstName: first_name,
-        lastName: last_name || null,
-        username: username || null,
-        photoUrl: photo_url || null,
-        role: 'EMPLOYEE',
-      },
-      select: {
-        id: true,
-        telegramId: true,
-        firstName: true,
-        lastName: true,
-        username: true,
-        phoneNumber: true,
-        photoUrl: true,
-        role: true,
-        isActive: true,
-        employeeId: true,
-        departmentId: true,
-        department: { select: { id: true, name: true } },
-      },
-    });
+  // Xavfsizlik: yangi foydalanuvchilar avtomatik yaratilmaydi. Akkauntlarni
+  // faqat administrator (Xodimlar bo'limi orqali) yaratishi mumkin. Telegram
+  // orqali kirish faqat administrator oldindan shu telegramId bilan bog'lab
+  // qo'ygan mavjud akkauntlarga ruxsat beradi.
+  if (!user) {
+    const error = new Error(
+      'Hisobingiz topilmadi. Administrator sizni tizimga qo\'shishi va Telegram akkauntingizni bog\'lashi kerak.'
+    );
+    error.statusCode = 403;
+    throw error;
   }
+
+  user = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      username: username || user.username,
+      photoUrl: photo_url || user.photoUrl,
+      firstName: user.firstName || first_name,
+    },
+    select: {
+      id: true,
+      telegramId: true,
+      firstName: true,
+      lastName: true,
+      username: true,
+      phoneNumber: true,
+      photoUrl: true,
+      role: true,
+      isActive: true,
+      employeeId: true,
+      departmentId: true,
+      department: { select: { id: true, name: true } },
+    },
+  });
 
   if (!user.isActive) {
     const error = new Error('Hisobingiz faol emas. Administrator bilan bog\'laning.');

@@ -24,6 +24,7 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [gpsResult, setGpsResult] = useState<GpsResult | null>(null);
   const [faceVerified, setFaceVerified] = useState(false);
+  const [livenessVerified, setLivenessVerified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,10 +45,11 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
     setStep(2);
   };
 
-  const handleFaceSuccess = () => {
+  const handleFaceSuccess = (data: { descriptor: number[]; image?: string; livenessVerified: boolean }) => {
     setFaceVerified(true);
+    setLivenessVerified(data.livenessVerified);
     setError(null);
-    toast.success('Yuz tekshiruvidan o\'tdi');
+    toast.success("Yuz va tiriklik tekshiruvidan o'tdi");
     setStep(3);
   };
 
@@ -57,7 +59,7 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
   };
 
   const handleConfirm = async () => {
-    if (!gpsResult || !faceVerified) return;
+    if (!gpsResult || !faceVerified || !livenessVerified) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -67,16 +69,16 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
         await attendanceApi.checkIn({
           latitude: gpsResult.latitude,
           longitude: gpsResult.longitude,
-          faceVerified: true,
-          livenessVerified: true,
+          faceVerified,
+          livenessVerified,
         });
         toast.success('Kirish muvaffaqiyatli qayd etildi!');
       } else {
         await attendanceApi.checkOut({
           latitude: gpsResult.latitude,
           longitude: gpsResult.longitude,
-          faceVerified: true,
-          livenessVerified: true,
+          faceVerified,
+          livenessVerified,
         });
         toast.success('Chiqish muvaffaqiyatli qayd etildi!');
       }
@@ -96,13 +98,14 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
     setStep(1);
     setGpsResult(null);
     setFaceVerified(false);
+    setLivenessVerified(false);
     setError(null);
     setCompleted(false);
   };
 
   const steps = [
     { num: 1, label: 'Joylashuv', icon: MapPin },
-    { num: 2, label: 'Yuz tekshirish', icon: Camera },
+    { num: 2, label: 'Yuz va tiriklik', icon: Camera },
     { num: 3, label: 'Tasdiqlash', icon: ClipboardCheck },
   ];
 
@@ -204,6 +207,12 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
               <div className="flex justify-between gap-4">
                 <span>Yuz tekshiruvi:</span>
                 <span className="text-green-700 font-medium">Tasdiqlangan</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span>Tiriklik tekshiruvi:</span>
+                <span className={`font-medium ${livenessVerified ? 'text-green-700' : 'text-red-700'}`}>
+                  {livenessVerified ? 'Tasdiqlangan' : 'Tasdiqlanmagan'}
+                </span>
               </div>
               <div className="flex justify-between gap-4">
                 <span>Amal turi:</span>

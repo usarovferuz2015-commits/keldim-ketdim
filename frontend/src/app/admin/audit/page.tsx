@@ -13,7 +13,7 @@ import {
 
 interface AuditLog {
   id: string;
-  timestamp: string;
+  createdAt: string;
   userId?: string;
   user?: { firstName: string; lastName?: string };
   action: string;

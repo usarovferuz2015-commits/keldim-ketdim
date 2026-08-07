@@ -116,13 +116,38 @@ export interface DashboardSummary {
   onLeaveToday: number;
 }
 
-export interface ReportData {
+export interface ReportSummary {
   totalDays: number;
   totalWorkedHours: number;
-  totalLateArrivals: number;
-  totalOvertimeHours: number;
-  totalAbsences: number;
-  records: Attendance[];
+  lateCount: number;
+  overtimeHours: number;
+  absentDays: number;
+  presentDays: number;
+  attendanceRate: number;
+}
+
+export interface ReportEmployeeRow {
+  user?: {
+    id?: string;
+    firstName?: string;
+    lastName?: string;
+    department?: { name?: string };
+  };
+  workedHours: number;
+  lateMinutes: number;
+  overtimeHours: number;
+  status?: AttendanceStatus;
+  presentDays?: number;
+  absentDays?: number;
+  lateDays?: number;
+  earlyLeaveDays?: number;
+}
+
+export interface ReportData {
+  date?: string;
+  period?: { start?: string; end?: string; year?: number; month?: number };
+  summary: ReportSummary;
+  employees: ReportEmployeeRow[];
 }
 
 export interface ApiResponse<T> {

@@ -77,21 +77,40 @@ const getById = async (id) => {
 };
 
 const create = async (data) => {
+  if (!data.firstName || !data.firstName.trim()) {
+    const error = new Error('Ism kiritish shart');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const telegramId = data.telegramId && data.telegramId.trim() ? data.telegramId.trim() : null;
+  const email = data.email && data.email.trim() ? data.email.trim() : null;
+
+  // Akkauntlarni faqat administrator yaratadi, shuning uchun har bir xodim
+  // kamida bitta kirish usuliga ega bo'lishi kerak: email+parol yoki Telegram ID.
+  if (!telegramId && (!email || !data.password)) {
+    const error = new Error(
+      'Xodim tizimga kira olishi uchun email + parol kiriting, yoki Telegram ID orqali bog\'lang'
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
   const existing = await prisma.user.findFirst({
     where: {
       OR: [
-        { telegramId: data.telegramId },
+        ...(telegramId ? [{ telegramId }] : []),
         ...(data.employeeId ? [{ employeeId: data.employeeId }] : []),
-        ...(data.email ? [{ email: data.email }] : []),
+        ...(email ? [{ email }] : []),
       ],
     },
   });
 
   if (existing) {
     const error = new Error(
-      existing.telegramId === data.telegramId
+      telegramId && existing.telegramId === telegramId
         ? 'Bu Telegram ID bilan foydalanuvchi mavjud'
-        : existing.email === data.email
+        : email && existing.email === email
         ? 'Bu email bilan foydalanuvchi mavjud'
         : 'Bu xodim ID bilan foydalanuvchi mavjud'
     );
@@ -103,10 +122,10 @@ const create = async (data) => {
 
   const user = await prisma.user.create({
     data: {
-      telegramId: data.telegramId,
-      email: data.email || null,
+      telegramId,
+      email,
       passwordHash,
-      firstName: data.firstName,
+      firstName: data.firstName.trim(),
       lastName: data.lastName || null,
       username: data.username || null,
       phoneNumber: data.phoneNumber || null,

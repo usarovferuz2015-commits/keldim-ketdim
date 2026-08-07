@@ -86,6 +86,16 @@ const checkIn = async (userId, data) => {
     },
   });
 
+  const workLocation = await geofenceService.findNearestLocation(latitude, longitude);
+  if (!workLocation) {
+    if (config.nodeEnv === 'production') {
+      const error = new Error('Siz hech qaysi ish joyi radiusida emassiz');
+      error.statusCode = 400;
+      throw error;
+    }
+    logger.info('Check-in test rejimi');
+  }
+
   if (existing) {
     const updated = await prisma.attendance.update({
       where: { id: existing.id },
@@ -105,16 +115,6 @@ const checkIn = async (userId, data) => {
     logger.info(`Qayta check-in: ${userId}`);
     googleSheetsService.syncAttendance(updated).catch(() => {});
     return updated;
-  }
-
-  const workLocation = await geofenceService.findNearestLocation(latitude, longitude);
-  if (!workLocation) {
-    if (config.nodeEnv === 'production') {
-      const error = new Error('Siz hech qaysi ish joyi radiusida emassiz');
-      error.statusCode = 400;
-      throw error;
-    }
-    logger.info('Check-in test rejimi');
   }
 
   const scheduleStartMinutes = parseTimeToMinutes(schedule.startTime);
@@ -139,7 +139,7 @@ const checkIn = async (userId, data) => {
       faceVerified,
       livenessVerified,
       gpsVerified: true,
-      workLocationId: workLocation.id,
+      workLocationId: workLocation?.id || null,
       lateMinutes,
       status,
     },
@@ -246,7 +246,7 @@ const checkOut = async (userId, data) => {
       faceVerified: attendance.faceVerified || faceVerified,
       livenessVerified: attendance.livenessVerified || livenessVerified,
       gpsVerified: attendance.gpsVerified || true,
-      workLocationId: attendance.workLocationId || workLocation.id,
+      workLocationId: attendance.workLocationId || workLocation?.id || null,
     },
     include: {
       workLocation: { select: { id: true, name: true } },

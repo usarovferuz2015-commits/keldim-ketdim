@@ -1,6 +1,8 @@
 # Xodimlar Davomati Boshqaruv Tizimi (Keldim Ketdim)
 
-## MongoDB o'rniga to'liq PostgreSQL + Prisma asosidagi production-grade tizim.
+## PostgreSQL + Prisma asosidagi production-grade tizim - o'rnatiladigan PWA (Progressive Web App) sifatida ishlaydi.
+
+Ilova mustaqil veb-ilova (PWA) sifatida ishlaydi - telefon brauzerida ochilib, "Bosh ekranga qo'shish" orqali odatiy ilova kabi o'rnatiladi. Akkauntlarni faqat administrator "Xodimlar" bo'limi orqali yaratadi (email + parol); Telegram - ixtiyoriy qo'shimcha bog'lanish usuli, majburiy emas.
 
 ---
 
@@ -8,14 +10,15 @@
 
 | Qatlam | Texnologiya |
 |--------|-------------|
-| Frontend | Next.js 14, TypeScript, Tailwind CSS, Telegram Mini App SDK |
+| Frontend | Next.js 14, TypeScript, Tailwind CSS, PWA (manifest + service worker) |
 | Backend | Node.js, Express.js |
 | Database | PostgreSQL 16 + Prisma ORM |
-| Auth | JWT (Access + Refresh token) |
-| Yuz aniqlash | face-api.js + TensorFlow.js |
+| Auth | JWT (Access + Refresh token), email/parol - administrator tomonidan yaratilgan akkauntlar. Telegram - ixtiyoriy qo'shimcha bog'lanish. |
+| Yuz aniqlash | face-api.js + TensorFlow.js (brauzerda, deskriptor taqqoslash) |
+| Tiriklik tekshiruvi | Ko'z yumish (EAR/blink) va bosh harakati aniqlash (client) + backend tomonidan qo'shimcha tasdiqlash |
 | GPS | Navigator Geolocation API + Haversine |
 | Hisobot | ExcelJS, PDFKit |
-| Integratsiya | Google Sheets API |
+| Integratsiya | Google Sheets API (ixtiyoriy) |
 | Deployment | Docker, Vercel (frontend), Railway/VPS (backend) |
 
 ---
@@ -78,8 +81,8 @@ cd backend
 cp .env.example .env
 # .env faylini tahrirlang:
 # - DATABASE_URL
-# - JWT_SECRET
-# - TELEGRAM_BOT_TOKEN
+# - JWT_SECRET (kuchli tasodifiy qiymat: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))")
+# - TELEGRAM_BOT_TOKEN (ixtiyoriy - faqat Telegram bog'lashni yoqmoqchi bo'lsangiz)
 # - Google Sheets (ixtiyoriy)
 
 # Frontend
@@ -197,10 +200,13 @@ Xodim davomat qayd etish uchun barcha 3 shart bajarilishi kerak:
 - Moslik foizi > 60% bo'lsa - ruxsat beriladi
 
 ### 3. Tiriklik Tekshiruvi (Anti-Spoofing)
-- Ko'z yumish aniqlanadi
-- Bosh harakati tekshiriladi
-- Skrinshot, bosma foto, video hujumlarni bloklaydi
-- Haqiqiy tirik odam aniqlangandagina muvaffaqiyatli
+- Yuz mos kelgandan so'ng kamera ~1.5-2 soniya davomida bir necha kadr yig'adi
+- Ko'z yumish (Eye Aspect Ratio/EAR formulasi) va/yoki bosh harakati client tomonda aniqlanadi
+- Backenddagi `/api/face/liveness` orqali qo'shimcha tasdiqlanadi (ikkinchi signal)
+- Statik surat/skrinshot/ekran ko'rsatilsa - harakat/ko'z yumish bo'lmagani uchun rad etiladi
+- Ikkala shart (mijoz + server) tasdiqlangandagina "tirik" deb hisoblanadi
+
+> Eslatma: bu heuristik (EAR chegarasi va harakat variance chegarasi) - real foydalanuvchilar va qurilmalar bilan sinovdan o'tkazib, kerak bo'lsa `frontend/src/hooks/useFaceDetection.ts` dagi chegara qiymatlarini moslashtiring.
 
 ---
 
@@ -250,27 +256,36 @@ docker-compose exec backend npx prisma db seed  # ixtiyoriy
 - `DATABASE_URL` Railway PostgreSQL'dan avtomatik olinadi
 - Boshqa env variable'larni qo'lda qo'shing
 
-### Telegram Bot sozlamalari
+### PWA sifatida o'rnatish (xodimlar uchun)
+
+1. Xodim telefonida brauzerda (Chrome/Safari) ilova manzilini ochadi
+2. Brauzer menyusidan "Bosh ekranga qo'shish" / "Add to Home Screen" ni tanlaydi
+3. Ilova ikonkasi bosh ekranga qo'shiladi va alohida ilova sifatida (brauzer panelisiz) ochiladi
+4. Kamera va joylashuv (GPS) ruxsatlarini birinchi ishga tushirishda so'raydi
+
+### Telegram bog'lash (ixtiyoriy)
+
+Telegram - asosiy kirish usuli emas, faqat kelajakda bildirishnoma yuborish yoki qo'shimcha kirish usuli sifatida yoqilishi mumkin bo'lgan ixtiyoriy imkoniyat:
 
 1. @BotFather orqali bot yarating
-2. Mini App uchun bot sozlamalarida `Menu Button` ni yoqing
-3. Frontend URL'ni Mini App URL sifatida ko'rsating
-4. `TELEGRAM_BOT_TOKEN` va `TELEGRAM_BOT_USERNAME` ni .env fayliga qo'shing
+2. `TELEGRAM_BOT_TOKEN` va `TELEGRAM_BOT_USERNAME` ni .env fayliga qo'shing
+3. Administrator xodim profilida uning Telegram ID'sini bog'lashi kerak - faqat oldindan admin tomonidan yaratilgan (email/parol bilan) akkauntlarga Telegram orqali kirish mumkin, yangi akkaunt Telegram orqali avtomatik yaratilmaydi (xavfsizlik uchun)
 
 ---
 
 ## Xavfsizlik
 
-- JWT autentifikatsiya (7 kun muddat)
+- Akkauntlarni faqat administrator yaratadi ("Xodimlar" bo'limi) - o'z-o'zidan ro'yxatdan o'tish yo'q
+- JWT autentifikatsiya (7 kun muddat), email + parol (bcrypt hash)
 - Refresh token rotatsiyasi (30 kun)
 - Rate limiting (har 15 daqiqada 100 ta so'rov)
 - Helmet.js HTTP header xavfsizligi
 - CORS sozlamalari
-- Input validatsiyasi (Zod)
-- Face spoofing himoyasi
-- GPS tekshiruvi
+- Input validatsiyasi (Zod, express-validator)
+- Face spoofing himoyasi (EAR blink + harakat aniqlash, client va server tomonda)
+- GPS tekshiruvi (geofencing)
 - Audit log (barcha amallar yozib boriladi)
-- Parol yo'q - faqat Telegram orqali autentifikatsiya
+- Telegram orqali kirish ixtiyoriy va faqat admin oldindan bog'lab qo'ygan akkauntlarga ruxsat beradi
 
 ---
 
@@ -291,12 +306,16 @@ docker-compose exec backend npx prisma db seed  # ixtiyoriy
 
 ## Admin hisobi
 
-Test admin ma'lumotlari (seed bilan yaratiladi):
-- Telegram ID: `000000000`
+Test admin ma'lumotlari (`npx prisma db seed` bilan yaratiladi):
+- Email: `admin@keldimketdim.uz`
+- Parol: `Admin123!`
 - Rol: ADMIN
-- Ism: Admin Foydalanuvchi
 
-Dev rejimda login sahifasida test formasi orqali kirish mumkin.
+Test xodim hisoblari (barchasi uchun bir xil parol, faqat sinov uchun):
+- Email: `employee_1@keldimketdim.uz` ... `employee_30@keldimketdim.uz`
+- Parol: `Employee123!`
+
+**Muhim:** bular faqat test/demo ma'lumotlari. Production muhitida seed orqali yaratilgan admin parolini birinchi kirishdan so'ng albatta almashtiring, yoki seed skriptini haqiqiy xodimlar ro'yxati bilan moslang.
 
 ---
 

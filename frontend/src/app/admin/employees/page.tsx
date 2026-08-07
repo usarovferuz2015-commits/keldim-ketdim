@@ -26,7 +26,6 @@ type EmployeeForm = {
   password: string;
   employeeId: string;
   phoneNumber: string;
-  phoneNumber: string;
   departmentId: string;
   scheduleType: string;
   startTime: string;
@@ -170,10 +169,14 @@ export default function AdminEmployeesPage() {
       toast.error('Ism kiritish shart');
       return;
     }
+    if (!editingUser && !form.telegramId.trim() && (!form.email.trim() || !form.password)) {
+      toast.error("Xodim tizimga kira olishi uchun email + parol kiriting, yoki Telegram ID kiriting");
+      return;
+    }
     setSaving(true);
     try {
       const userData: Record<string, unknown> = {
-        telegramId: form.telegramId.trim() || `manual_${Date.now()}`,
+        telegramId: form.telegramId.trim() || undefined,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: form.email.trim() || undefined,
@@ -488,13 +491,13 @@ export default function AdminEmployeesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telegram ID *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telegram ID (ixtiyoriy)</label>
                   <input
                     type="text"
                     value={form.telegramId}
                     onChange={(e) => setForm({ ...form, telegramId: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono"
-                    placeholder="123456789"
+                    placeholder="Agar mavjud bo'lsa"
                   />
                 </div>
                 <div>
@@ -539,7 +542,9 @@ export default function AdminEmployeesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email {!editingUser && !form.telegramId.trim() ? '*' : ''}
+                  </label>
                   <input
                     type="email"
                     value={form.email}

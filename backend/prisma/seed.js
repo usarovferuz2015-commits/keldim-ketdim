@@ -1,15 +1,20 @@
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
+
+const DEFAULT_ADMIN_EMAIL = 'admin@keldimketdim.uz';
+const DEFAULT_ADMIN_PASSWORD = 'Admin123!';
 
 async function main() {
   console.log('Test ma\'lumotlar yaratish boshlandi...');
 
-  // Admin foydalanuvchi
+  // Admin foydalanuvchi (email + parol orqali kiradi - Telegram shart emas)
   const admin = await prisma.user.upsert({
-    where: { telegramId: '000000000' },
+    where: { email: DEFAULT_ADMIN_EMAIL },
     update: {},
     create: {
-      telegramId: '000000000',
+      email: DEFAULT_ADMIN_EMAIL,
+      passwordHash: bcrypt.hashSync(DEFAULT_ADMIN_PASSWORD, 10),
       firstName: 'Admin',
       lastName: 'Foydalanuvchi',
       username: 'admin',
@@ -69,16 +74,21 @@ async function main() {
     ['Eshmat', 'Ermatov'], ['Feruza', 'Olimova'], ['G\'ani', 'Sobirov'],
   ];
 
+  const defaultEmployeePasswordHash = bcrypt.hashSync('Employee123!', 10);
+
   for (let i = 0; i < employeeNames.length; i++) {
     const [first, last] = employeeNames[i];
     const deptIdx = i % createdDepts.length;
+    const username = `employee_${i + 1}`.toLowerCase();
 
     const user = await prisma.user.create({
       data: {
-        telegramId: `${100000000 + i}`,
+        // Telegram ixtiyoriy - admin xohlasa keyinroq bog'lab qo'yishi mumkin
         firstName: first,
         lastName: last,
-        username: `employee_${i + 1}`.toLowerCase(),
+        username,
+        email: `${username}@keldimketdim.uz`,
+        passwordHash: defaultEmployeePasswordHash,
         phoneNumber: `+99890${String(1000000 + i).slice(1)}`,
         role: 'EMPLOYEE',
         employeeId: `EMP${String(i + 1).padStart(3, '0')}`,
@@ -126,6 +136,10 @@ async function main() {
   console.log(`- Xodimlar: ${employeeNames.length} ta`);
   console.log(`- Ish joylari: 2 ta`);
   console.log(`- Bayramlar: 7 ta`);
+  console.log('');
+  console.log('Kirish ma\'lumotlari (email + parol):');
+  console.log(`  Admin:  ${DEFAULT_ADMIN_EMAIL} / ${DEFAULT_ADMIN_PASSWORD}`);
+  console.log(`  Xodim:  employee_1@keldimketdim.uz / Employee123! (barcha xodimlar uchun bir xil, birinchi kirishda o'zgartirish tavsiya etiladi)`);
 }
 
 main()

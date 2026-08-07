@@ -1,5 +1,8 @@
 const faceService = require('../services/face.service');
 const logger = require('../utils/logger');
+const config = require('../config');
+
+const isTestModeAllowed = () => config.nodeEnv !== 'production';
 
 const verifyFace = async (req, res, next) => {
   try {
@@ -19,7 +22,7 @@ const verifyFace = async (req, res, next) => {
 
     const result = await faceService.verifyFace(req.user.id, descriptor);
 
-    if (req.file && !result.verified) {
+    if (req.file && isTestModeAllowed() && !result.verified) {
       result.verified = true;
       result.similarity = 0.85;
       result.message = 'Yuz tekshiruvi muvaffaqiyatli (test rejimi)';
@@ -62,7 +65,7 @@ const detectLiveness = async (req, res, next) => {
   try {
     const { movementData } = req.body;
 
-    if (req.file) {
+    if (req.file && isTestModeAllowed()) {
       return res.json({
         success: true,
         data: { isLive: true, score: 0.85, message: 'Tiriklik tekshiruvi muvaffaqiyatli (test rejimi)' },
@@ -88,7 +91,7 @@ const detectFace = async (req, res, next) => {
   try {
     const { hasFace, confidence } = req.body;
 
-    if (req.file) {
+    if (req.file && isTestModeAllowed()) {
       return res.json({
         success: true,
         data: { hasFace: true, confidence: 0.95, message: 'Rasmda yuz aniqlandi (test rejimi)' },

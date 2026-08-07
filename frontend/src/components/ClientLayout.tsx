@@ -25,10 +25,13 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // PWA: service worker'ni ro'yxatdan o'tkazish (ilovani o'rnatish va offline
+  // qobiq keshlash uchun). Ishlab chiqarish build'ida ishlaydi.
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // service worker ixtiyoriy - xato bo'lsa ilova baribir ishlayveradi
+      });
     }
   }, []);
 
