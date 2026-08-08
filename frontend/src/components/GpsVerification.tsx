@@ -153,7 +153,12 @@ export function GpsVerification({ onVerify }: Props) {
             msg = 'Joylashuvni aniqlashda xatolik yuz berdi';
         }
       } else {
-        msg = err instanceof Error ? err.message : 'Joylashuvni tekshirishda xatolik yuz berdi';
+        // Axios xatoligi bo'lsa backend'ning aniq xabarini ko'rsatamiz
+        // ("Request failed with status code 401" kabi umumiy xabar o'rniga) -
+        // aks holda haqiqiy sabab (masalan sessiya tugashi) foydalanuvchiga
+        // ham, keyingi diagnostikaga ham yashiringan bo'lardi
+        const axiosMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        msg = axiosMsg || (err instanceof Error ? err.message : 'Joylashuvni tekshirishda xatolik yuz berdi');
       }
       setError(msg);
       setResult({

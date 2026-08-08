@@ -18,28 +18,73 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Bir vaqtda bir nechta so'rov 401 bilan muvaffaqiyatsiz tugasa (masalan sahifa
+// ochilganda joylashuv, davomat holati va statistika bir vaqtda so'ralsa), har
+// biri o'zining /auth/refresh chaqiruvini yubormasligi kerak - refreshToken bir
+// martalik (rotatsiya qilinadi) bo'lgani uchun ikkinchi parallel chaqiruv
+// birinchisi hali ulgurmagan eski tokenni ishlatib, uni "bekor qilingan" deb
+// topib BUTUN sessiyani (yangi tokenni ham) bekor qilib qo'yishi mumkin edi.
+// Shu sabab faqat bitta refresh so'rovi yuboriladi, qolganlari shu natijani kutadi.
+let isRefreshing = false;
+let refreshWaiters: Array<(token: string | null) => void> = [];
+
+function onRefreshed(token: string | null) {
+  refreshWaiters.forEach((cb) => cb(token));
+  refreshWaiters = [];
+}
+
+function logoutAndRedirect() {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/refresh') || originalRequest?.url?.includes('/auth/');
 
-    if (error.response?.status === 401 && error.response?.data?.code === 'TOKEN_EXPIRED' && !originalRequest._retry) {
+    // Har qanday 401 (nafaqat TOKEN_EXPIRED kodli) - token muddati tugagan,
+    // yaroqsiz yoki foydalanuvchi topilmagan bo'lishi mumkin. Barcha holatlarda
+    // avval token yangilashga urinib ko'ramiz, aks holda foydalanuvchi
+    // "Qayta urinish" tugmasini abadiy bekorga bosaveradi - token o'zgarmagani
+    // uchun xatolik hech qachon tuzalmaydi.
+    if (error.response?.status === 401 && !isAuthEndpoint && !originalRequest._retry) {
       originalRequest._retry = true;
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          refreshWaiters.push((token) => {
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(api(originalRequest));
+            } else {
+              reject(error);
+            }
+          });
+        });
+      }
+
+      isRefreshing = true;
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) throw new Error('Refresh token topilmadi');
 
         const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-        localStorage.setItem('accessToken', data.data.accessToken);
+        const newAccessToken = data.data.accessToken;
+        localStorage.setItem('accessToken', newAccessToken);
         localStorage.setItem('refreshToken', data.data.refreshToken);
-        originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
+        isRefreshing = false;
+        onRefreshed(newAccessToken);
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
+        isRefreshing = false;
+        onRefreshed(null);
+        logoutAndRedirect();
         return Promise.reject(refreshError);
       }
     }
