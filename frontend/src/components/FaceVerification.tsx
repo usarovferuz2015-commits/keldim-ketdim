@@ -34,7 +34,12 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        // `max` cheklovi ham qo'shildi: ba'zi telefon old kameralari `ideal`ni
+        // e'tiborsiz qoldirib ancha yuqori original o'lchamda oqim beradi, bu esa
+        // har bir kadrda ishlaydigan og'ir SSD MobileNetV1 modeliga xotira/WebGL
+        // bosimini oshirib, past-o'rta darajali qurilmalarda aniqlashni sukut
+        // bo'yicha yiqilishiga (va noto'g'ri "yuz aniqlanmadi" xabariga) olib kelardi
+        video: { facingMode: 'user', width: { ideal: 640, max: 960 }, height: { ideal: 480, max: 720 } },
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -109,10 +114,18 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
     setError(null);
 
     try {
-      const descriptor = await extractDescriptor(video);
+      const { descriptor, errored } = await extractDescriptor(video);
       if (!descriptor) {
-        toast.error('Yuz aniqlanmadi', { icon: '😐' });
-        setError('Yuz aniqlanmadi. Yuzingizni kameraga qarating, yaxshi yoritilgan joyda turing.');
+        if (errored) {
+          // Aniqlash jarayonining o'zi ishlamadi (texnik xato) - buni "yuz
+          // topilmadi" bilan aralashtirmaymiz, aks holda foydalanuvchi
+          // yorug'likni to'g'irlab, aslida yordam bermaydigan ishga vaqt sarflaydi
+          toast.error('Yuz aniqlashda texnik xatolik', { icon: '⚠️' });
+          setError('Yuz aniqlashda texnik xatolik yuz berdi. Sahifani yangilab qayta urinib ko\'ring.');
+        } else {
+          toast.error('Yuz aniqlanmadi', { icon: '😐' });
+          setError('Yuz aniqlanmadi. Yuzingizni kameraga qarating, yaxshi yoritilgan joyda turing.');
+        }
         setIsProcessing(false);
         return;
       }

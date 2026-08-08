@@ -112,9 +112,17 @@ export function useFaceDetection() {
     return () => { cancelled = true; };
   }, []);
 
-  const extractDescriptor = async (video: HTMLVideoElement): Promise<Float32Array | null> => {
+  // `errored: true` = yuz aniqlash jarayonining o'zi ishlamadi (WebGL/xotira/boshqa
+  // texnik xato) - bu "yuz topilmadi" bilan bir xil emas va foydalanuvchiga
+  // boshqacha xabar ko'rsatilishi kerak, chunki "yorug'lik yomon" degan maslahat
+  // bunday holatda foydalanuvchini chalg'itadi va haqiqiy sababni yashiradi.
+  const extractDescriptor = async (
+    video: HTMLVideoElement
+  ): Promise<{ descriptor: Float32Array | null; errored: boolean }> => {
     const faceapi = faceapiRef.current;
-    if (!faceapi || !video || video.videoWidth === 0) return null;
+    if (!faceapi || !video || video.videoWidth === 0) {
+      return { descriptor: null, errored: false };
+    }
 
     try {
       const result = await faceapi
@@ -122,10 +130,12 @@ export function useFaceDetection() {
         .withFaceLandmarks()
         .withFaceDescriptor();
 
-      if (!result) return null;
-      return result.descriptor;
-    } catch {
-      return null;
+      if (!result) return { descriptor: null, errored: false };
+      return { descriptor: result.descriptor, errored: false };
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[useFaceDetection] extractDescriptor xato:', err);
+      return { descriptor: null, errored: true };
     }
   };
 
@@ -150,7 +160,9 @@ export function useFaceDetection() {
       ]);
 
       return { ear, vector };
-    } catch {
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[useFaceDetection] captureLivenessFrame xato:', err);
       return null;
     }
   };
