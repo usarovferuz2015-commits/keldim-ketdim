@@ -9,27 +9,20 @@
 // tasdiqlagan otrabotka orqali qanchalik yopgani.
 
 const prisma = require('../utils/prisma');
+const { localMinutesOfDay, localIsoWeekday, localDayStart, localDayEnd } = require('../utils/timezone');
 
 const parseTimeToMinutes = (timeStr) => {
   const [hours, minutes] = timeStr.split(':').map(Number);
   return hours * 60 + minutes;
 };
 
-const dateTimeToMinutes = (date) => date.getUTCHours() * 60 + date.getUTCMinutes();
-
-const getDayStart = (date) => {
-  const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-};
-
-const getDayEnd = (date) => {
-  const d = new Date(date);
-  d.setUTCHours(23, 59, 59, 999);
-  return d;
-};
-
-const isoWeekday = (date) => (date.getUTCDay() === 0 ? 7 : date.getUTCDay());
+// Jadval vaqtlari ("09:00" va h.k.) Toshkent mahalliy devor soati sifatida
+// kiritiladi - shuning uchun "hozir" ni ham xuddi shu bazada hisoblaymiz
+// (bevosita UTC bilan solishtirish kechikishni 300 daqiqaga kam ko'rsatardi).
+const dateTimeToMinutes = localMinutesOfDay;
+const getDayStart = localDayStart;
+const getDayEnd = localDayEnd;
+const isoWeekday = localIsoWeekday;
 
 const minutesBetween = (from, to) => Math.max(0, Math.round((to.getTime() - from.getTime()) / 60000));
 

@@ -3,27 +3,20 @@ const logger = require('../utils/logger');
 const config = require('../config');
 const geofenceService = require('./geofence.service');
 const googleSheetsService = require('./googleSheets.service');
+const { localMinutesOfDay, localIsoWeekday, localDayStart, localDayEnd } = require('../utils/timezone');
 
 const parseTimeToMinutes = (timeStr) => {
   const [hours, minutes] = timeStr.split(':').map(Number);
   return hours * 60 + minutes;
 };
 
-const dateTimeToMinutes = (date) => {
-  return date.getUTCHours() * 60 + date.getUTCMinutes();
-};
-
-const getWorkDateStart = (date) => {
-  const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-};
-
-const getWorkDateEnd = (date) => {
-  const d = new Date(date);
-  d.setUTCHours(23, 59, 59, 999);
-  return d;
-};
+// Eslatma: jadval boshlanish/tugash vaqtlari ("09:00" va h.k.) administrator
+// tomonidan Toshkent mahalliy devor soati sifatida kiritiladi - shuning uchun
+// hozirgi vaqtni ham xuddi shu bazada (mahalliy daqiqa) hisoblash kerak,
+// aks holda kechikish UTC+5 farqi (300 daqiqa) qadar kam ko'rsatiladi.
+const dateTimeToMinutes = localMinutesOfDay;
+const getWorkDateStart = localDayStart;
+const getWorkDateEnd = localDayEnd;
 
 const checkIn = async (userId, data) => {
   const { latitude, longitude, faceVerified, livenessVerified } = data;
@@ -50,7 +43,7 @@ const checkIn = async (userId, data) => {
 
   const schedule = user.schedule;
 
-  const dayOfWeek = now.getUTCDay() === 0 ? 7 : now.getUTCDay();
+  const dayOfWeek = localIsoWeekday(now);
   if (!schedule.workDays.includes(dayOfWeek)) {
     const error = new Error('Bugun ish kuni emas');
     error.statusCode = 400;
@@ -364,7 +357,7 @@ const getTodayStatus = async (userId) => {
     };
   }
 
-  const dayOfWeek = now.getUTCDay() === 0 ? 7 : now.getUTCDay();
+  const dayOfWeek = localIsoWeekday(now);
   const isWorkDay = schedule.workDays.includes(dayOfWeek);
 
   const holiday = await prisma.holiday.findFirst({

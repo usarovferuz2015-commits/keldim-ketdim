@@ -49,7 +49,10 @@ function formatSom(n?: number | null): string {
 
 function formatTime(t?: string): string {
   if (!t) return '—';
-  return new Date(t).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+  // Backend UTC instant qaytaradi - har doim Toshkent mahalliy vaqtiga
+  // aylantirib ko'rsatamiz (ko'ruvchi qurilma boshqa timezone'da bo'lsa ham
+  // to'g'ri chiqishi uchun).
+  return new Date(t).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tashkent' });
 }
 
 export default function AdminPayrollPage() {

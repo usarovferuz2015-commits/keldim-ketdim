@@ -120,6 +120,19 @@ export default function AdminAttendancePage() {
     return u ? `${u.firstName} ${u.lastName || ''}`.trim() : '—';
   };
 
+  // Backend UTC instant qaytaradi (to'g'ri) - ko'rsatishda doim Toshkent
+  // mahalliy vaqtiga aylantiramiz, ko'ruvchi qurilma boshqa timezone'da
+  // bo'lsa ham to'g'ri chiqishi uchun (ilgari checkInTime.slice(11,16) xom
+  // UTC soatini ko'rsatardi - real vaqtdan 5 soat farq qilardi).
+  const formatTime = (dateStr?: string) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleTimeString('uz-UZ', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Tashkent',
+    });
+  };
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     const months = ['Yan','Fev','Mar','Apr','May','Iyun','Iyul','Avg','Sen','Okt','Noy','Dek'];
@@ -241,10 +254,10 @@ export default function AdminAttendancePage() {
                       {formatDate(rec.workDate)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 font-mono">
-                      {rec.checkInTime ? rec.checkInTime.slice(11, 16) : '—'}
+                      {formatTime(rec.checkInTime)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 font-mono">
-                      {rec.checkOutTime ? rec.checkOutTime.slice(11, 16) : '—'}
+                      {formatTime(rec.checkOutTime)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {rec.workedHours.toFixed(1)} soat

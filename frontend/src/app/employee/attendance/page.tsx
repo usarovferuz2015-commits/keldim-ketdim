@@ -86,7 +86,7 @@ export default function EmployeeAttendancePage() {
   const formatTime = (dateStr?: string): string => {
     if (!dateStr) return '--:--';
     try {
-      return new Date(dateStr).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+      return new Date(dateStr).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tashkent' });
     } catch {
       return '--:--';
     }
