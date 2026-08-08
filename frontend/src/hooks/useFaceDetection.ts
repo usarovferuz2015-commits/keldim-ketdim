@@ -81,6 +81,79 @@ export function evaluateMotion(frames: LivenessFrame[]): MotionEvaluation {
   return { moved: avgVar > 0.00015, variance: avgVar };
 }
 
+// Qayta ishlatiladigan canvas'lar - har kadrda yangi canvas yaratmaslik uchun
+// (captureLivenessSequence bir necha soniyada ~12 marta chaqiradi)
+let sampleCanvas: HTMLCanvasElement | null = null;
+let workCanvas: HTMLCanvasElement | null = null;
+
+// Video kadridan o'rtacha yorug'likni tez baholaydi (32x32 pastga tushirilgan
+// nusxa orqali - to'liq kadrni piksel-piksel tekshirishdan ancha tezroq va
+// ~130ms oraliqda takrorlanadigan tiriklik tekshiruvi uchun ham yetarlicha tez)
+function estimateBrightness(ctx2d: CanvasRenderingContext2D): number {
+  const { data } = ctx2d.getImageData(0, 0, 32, 32);
+  let total = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    // ITU-R BT.601 luminance formulasi
+    total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  }
+  return total / (data.length / 4);
+}
+
+// Video kadrini xom holda emas, yorug'lik darajasiga qarab avtomatik
+// yorqinlik/kontrast bilan "tekislab" qaytaradi va faceapi shu tekislangan
+// canvas ustida ishlaydi. Xira yoki notekis yoritilgan muhitlarda aniqlashni
+// yaxshilaydi - avval kadr hech qanday ishlov berilmasdan to'g'ridan-to'g'ri
+// modelga yuborilardi.
+function enhanceFrame(video: HTMLVideoElement): HTMLCanvasElement {
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+
+  if (!sampleCanvas) {
+    sampleCanvas = document.createElement('canvas');
+    sampleCanvas.width = 32;
+    sampleCanvas.height = 32;
+  }
+  if (!workCanvas) workCanvas = document.createElement('canvas');
+  if (workCanvas.width !== width || workCanvas.height !== height) {
+    workCanvas.width = width;
+    workCanvas.height = height;
+  }
+
+  const workCtx = workCanvas.getContext('2d');
+  if (!workCtx) {
+    // Canvas 2D konteksti olinmasa - hech bo'lmasa xom kadrni qaytaramiz
+    return workCanvas;
+  }
+
+  let brightness = 128;
+  const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+  if (sampleCtx) {
+    try {
+      sampleCtx.drawImage(video, 0, 0, 32, 32);
+      brightness = estimateBrightness(sampleCtx);
+    } catch {
+      // getImageData xavfsizlik/boshqa sabab bilan ishlamasa - filtrsiz davom etamiz
+      brightness = 128;
+    }
+  }
+
+  // 0-255 oralig'ida "normal" markaz ~128. Juda past/yuqori qiymatlarda
+  // mos ravishda kompensatsiya qo'llaymiz.
+  let filter = 'none';
+  if (brightness < 60) {
+    filter = 'brightness(1.7) contrast(1.3)';
+  } else if (brightness < 95) {
+    filter = 'brightness(1.35) contrast(1.18)';
+  } else if (brightness > 195) {
+    filter = 'brightness(0.85) contrast(1.1)';
+  }
+
+  workCtx.filter = filter;
+  workCtx.drawImage(video, 0, 0, width, height);
+  workCtx.filter = 'none';
+  return workCanvas;
+}
+
 export function useFaceDetection() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -125,8 +198,9 @@ export function useFaceDetection() {
     }
 
     try {
+      const frame = enhanceFrame(video);
       const result = await faceapi
-        .detectSingleFace(video)
+        .detectSingleFace(frame)
         .withFaceLandmarks()
         .withFaceDescriptor();
 
@@ -145,7 +219,8 @@ export function useFaceDetection() {
     if (!faceapi || !video || video.videoWidth === 0) return null;
 
     try {
-      const result = await faceapi.detectSingleFace(video).withFaceLandmarks();
+      const frame = enhanceFrame(video);
+      const result = await faceapi.detectSingleFace(frame).withFaceLandmarks();
       if (!result) return null;
 
       const box = result.detection.box;
