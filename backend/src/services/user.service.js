@@ -205,7 +205,14 @@ const getFaceTemplate = async (id) => {
     throw error;
   }
 
-  return user;
+  // Return explicit booleans, not the raw nullable fields — an object with
+  // null properties is still truthy, which previously made every user look
+  // "face registered" to any caller doing a `!!` check on the response.
+  return {
+    id: user.id,
+    hasTemplate: !!user.faceTemplateData,
+    templateExists: !!user.faceTemplate,
+  };
 };
 
 const saveFaceTemplate = async (id, faceImageBuffer, faceDescriptor) => {

@@ -37,7 +37,7 @@ export default function EmployeeProfilePage() {
     setError(null);
     try {
       const { data } = await userApi.getFaceTemplate(user.id);
-      setHasFaceTemplate(!!data.data);
+      setHasFaceTemplate(!!data.data?.hasTemplate);
     } catch (err: unknown) {
       setHasFaceTemplate(false);
     } finally {
