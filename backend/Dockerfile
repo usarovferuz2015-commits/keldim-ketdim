@@ -26,4 +26,4 @@ RUN mkdir -p logs
 EXPOSE 4000
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["sh", "-c", "npx prisma migrate deploy; exec node src/app.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy; exec node src/app.js"]
