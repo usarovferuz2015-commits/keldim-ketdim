@@ -22,7 +22,16 @@ const config = {
     spreadsheetId: process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
   },
   face: {
-    similarityThreshold: parseFloat(process.env.FACE_SIMILARITY_THRESHOLD) || 0.6,
+    // face.service.js "o'xshashlik"ni `1 - euclideanDistance` sifatida hisoblaydi.
+    // face-api.js jamoasining odatiy tavsiyasi: bir xil odamning descriptor
+    // masofasi (distance) < 0.6 bo'lsa mos keladi deb hisoblanadi - ya'ni
+    // "o'xshashlik" (1-distance) shkаlasida bu ~0.4 chegarasiga to'g'ri keladi,
+    // 0.6 EMAS. Threshold=0.6 haddan tashqari qattiq bo'lib, kunlik yorug'lik/
+    // burchak farqi bilan haqiqiy xodimlarni ham rad etib qo'yardi (haqiqiy
+    // holatda kuzatildi: bir xil odam 57% o'xshashlik bilan rad etilgan edi).
+    // 0.45 - xavfsizlik (begona odamni qabul qilmaslik) bilan qulaylik
+    // (haqiqiy xodimni rad etmaslik) o'rtasidagi muvozanatlashtirilgan qiymat.
+    similarityThreshold: parseFloat(process.env.FACE_SIMILARITY_THRESHOLD) || 0.45,
     livenessBlinkThreshold: parseFloat(process.env.LIVENESS_BLINK_THRESHOLD) || 0.3,
   },
   geofence: {
