@@ -23,6 +23,7 @@ const faceRoutes = require('./routes/face.routes');
 const googleSheetsRoutes = require('./routes/googleSheets.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const adminRoutes = require('./routes/admin.routes');
+const payrollRoutes = require('./routes/payroll.routes');
 
 const app = express();
 
@@ -72,6 +73,7 @@ app.use('/api/face', faceRoutes);
 app.use('/api/sheets', googleSheetsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/payroll', payrollRoutes);
 
 app.use(errorHandler);
 

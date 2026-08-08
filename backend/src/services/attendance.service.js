@@ -86,6 +86,24 @@ const checkIn = async (userId, data) => {
     },
   });
 
+  // Bugun uchun boshqa (yopilgan) sessiya bor-yo'qligini tekshiramiz - agar
+  // bor bo'lsa, bu kunning BIRINCHI kelishi emas, balki tanaffusdan/tashqaridan
+  // qaytish. Kechikish faqat kunning birinchi kelishida jadval boshiga nisbatan
+  // hisoblanadi; aks holda masalan tushlikdan 14:00da qaytgan xodim jadval
+  // 09:00da boshlangani uchun "5 soat kechikdi" deb noto'g'ri belgilanardi.
+  // Sessiyalar orasidagi vaqt (necha daqiqaga chiqib kelgani) alohida
+  // payroll.service.js orqali hisoblanadi.
+  const anySessionToday = existing
+    ? true
+    : !!(await prisma.attendance.findFirst({
+        where: {
+          userId,
+          workDate: { gte: todayStart, lte: todayEnd },
+          checkInTime: { not: null },
+        },
+        select: { id: true },
+      }));
+
   const workLocation = await geofenceService.findNearestLocation(latitude, longitude);
   if (!workLocation) {
     if (config.nodeEnv === 'production') {
@@ -117,14 +135,16 @@ const checkIn = async (userId, data) => {
     return updated;
   }
 
-  const scheduleStartMinutes = parseTimeToMinutes(schedule.startTime);
-  const currentMinutes = dateTimeToMinutes(now);
   let lateMinutes = 0;
   let status = 'PRESENT';
 
-  if (currentMinutes > scheduleStartMinutes) {
-    lateMinutes = currentMinutes - scheduleStartMinutes;
-    status = 'LATE';
+  if (!anySessionToday) {
+    const scheduleStartMinutes = parseTimeToMinutes(schedule.startTime);
+    const currentMinutes = dateTimeToMinutes(now);
+    if (currentMinutes > scheduleStartMinutes) {
+      lateMinutes = currentMinutes - scheduleStartMinutes;
+      status = 'LATE';
+    }
   }
 
   const attendance = await prisma.attendance.create({
@@ -215,6 +235,13 @@ const checkOut = async (userId, data) => {
   let workedHours = Math.round((workedMs / (1000 * 60 * 60)) * 100) / 100;
   if (workedHours < 0) workedHours = 0;
 
+  // Eslatma: bu maydonlar (earlyLeaveMinutes/overtimeHours) har bir sessiya
+  // (bitta check-in/check-out juftligi) uchun alohida, jadval oxiriga nisbatan
+  // hisoblanadi - shuning uchun kun davomida oraliq chiqishlarda (masalan
+  // tushlikka chiqish) ma'nosiz katta qiymat berishi mumkin ("18:00 tugaydi,
+  // 13:00da chiqdi" = "5 soat erta ketdi"). Bu OK, chunki ular faqat shu
+  // sessiyaning xom ma'lumoti - kunlik to'g'ri kamomad/otrabotka hisobi
+  // barcha sessiyalarni jamlagan holda payroll.service.js'da qilinadi.
   const scheduleEndMinutes = parseTimeToMinutes(schedule.endTime);
   const checkoutMinutes = dateTimeToMinutes(now);
   let earlyLeaveMinutes = 0;

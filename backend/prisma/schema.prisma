@@ -66,6 +66,8 @@ model User {
   departmentId     String?
   faceTemplate     String?
   faceTemplateData Json?
+  // So'm/soat - kamomad (yetishmagan soat) va otrabotka pulini hisoblash uchun
+  hourlyRate       Float?
 
   department       Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   schedule         Schedule?
@@ -73,6 +75,8 @@ model User {
   leaveRequests    LeaveRequest[]
   auditLogs        AuditLog[]
   refreshTokens    RefreshToken[]
+  overtimeApprovals   OvertimeApproval[] @relation("UserOvertimeApprovals")
+  approvedOvertimes   OvertimeApproval[] @relation("ApprovedOvertimeApprovals")
 
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
@@ -236,6 +240,35 @@ model Holiday {
 
   @@unique([date, isRecurring])
   @@map("holidays")
+}
+
+// ============================================================
+// Otrabotka (qarzni qoplash) tasdiqlari
+//
+// Kunlik kamomad (jadval bo'yicha kutilgan vaqtdan kam ishlangan vaqt)
+// avtomatik hisoblanadi va "qarz" sifatida ko'rsatiladi (payroll.service.js).
+// Bu qarz o'z-o'zidan yopilmaydi - xodim ortiqcha/qo'shimcha ishlagan vaqtini
+// administrator ko'rib chiqib, aynan shu yozuv orqali tasdiqlashi kerak, shu
+// tasdiqlangan daqiqalar summasi qarzdan ayiriladi. Shu tariqa "xodim xohlasa
+// otrabotka bilan to'ldirib to'liq oylik olsin" administrator nazorati bilan
+// amalga oshadi.
+// ============================================================
+
+model OvertimeApproval {
+  id             String   @id @default(uuid())
+  userId         String
+  minutesApplied Int
+  note           String?
+  approvedById   String
+
+  user           User     @relation("UserOvertimeApprovals", fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy     User     @relation("ApprovedOvertimeApprovals", fields: [approvedById], references: [id])
+
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("overtime_approvals")
 }
 
 // ============================================================

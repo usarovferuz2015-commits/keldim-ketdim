@@ -11,6 +11,7 @@ export interface User {
   employeeId?: string;
   departmentId?: string;
   faceTemplate?: string;
+  hourlyRate?: number | null;
   department?: Department;
   schedule?: Schedule;
   createdAt: string;
@@ -160,6 +161,90 @@ export interface ApiResponse<T> {
     total: number;
     totalPages: number;
   };
+}
+
+export type PayrollDayStatus =
+  | 'DAM_OLISH_KUNI'
+  | 'BAYRAM'
+  | 'TATIL'
+  | 'JADVAL_YOQ'
+  | 'KELMADI'
+  | 'KUTILMOQDA'
+  | 'ISHDA'
+  | 'TASHQARIDA'
+  | 'KECHIKKAN_VA_ERTA_KETGAN'
+  | 'KECHIKKAN'
+  | 'ERTA_KETGAN'
+  | 'BOSHLIQ_BOR'
+  | 'PRESENT';
+
+export interface PayrollSession {
+  id: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  workLocation?: { id: string; name: string };
+  faceVerified: boolean;
+  livenessVerified: boolean;
+  workedMinutes: number;
+  isOpen: boolean;
+}
+
+export interface PayrollGap {
+  fromTime: string;
+  toTime: string;
+  minutes: number;
+}
+
+export interface PayrollDaySummary {
+  date: string;
+  scheduleStart?: string;
+  scheduleEnd?: string;
+  scheduledMinutes: number;
+  sessions: PayrollSession[];
+  gaps: PayrollGap[];
+  firstCheckIn?: string;
+  lastCheckOut?: string;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+  workedMinutes: number;
+  shortfallMinutes: number;
+  overtimeMinutes: number;
+  inProgress: boolean;
+  isHoliday?: boolean;
+  holidayName?: string;
+  isOnLeave?: boolean;
+  status: PayrollDayStatus;
+}
+
+export interface PayrollRangeSummary {
+  userId: string;
+  firstName: string;
+  lastName?: string;
+  employeeId?: string;
+  hourlyRate?: number | null;
+  totalScheduledMinutes: number;
+  totalWorkedMinutes: number;
+  totalLateMinutes: number;
+  totalShortfallMinutes: number;
+  totalOvertimeMinutes: number;
+  approvedOvertimeMinutes: number;
+  outstandingDebtMinutes: number;
+  outstandingDebtAmount: number | null;
+  estimatedPay: number | null;
+  daysAbsent: number;
+  daysLate: number;
+  daysWithGaps: number;
+}
+
+export interface OvertimeApproval {
+  id: string;
+  userId: string;
+  minutesApplied: number;
+  note?: string;
+  approvedById: string;
+  createdAt: string;
+  user?: { id: string; firstName: string; lastName?: string; employeeId?: string };
+  approvedBy?: { id: string; firstName: string; lastName?: string };
 }
 
 export interface FaceVerificationResult {

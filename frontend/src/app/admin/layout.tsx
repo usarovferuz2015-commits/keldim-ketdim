@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   ShieldCheck,
+  Wallet,
 } from 'lucide-react';
 
 const navItems = [
@@ -27,6 +28,7 @@ const navItems = [
   { href: '/admin/departments', label: "Bo'limlar", icon: Building2 },
   { href: '/admin/locations', label: 'Lokatsiyalar', icon: MapPin },
   { href: '/admin/attendance', label: 'Davomat', icon: Clock },
+  { href: '/admin/payroll', label: 'Hisob-kitob', icon: Wallet },
   { href: '/admin/leaves', label: 'Dam olish', icon: CalendarDays },
   { href: '/admin/holidays', label: 'Bayramlar', icon: Cake },
   { href: '/admin/reports', label: 'Hisobotlar', icon: BarChart3 },

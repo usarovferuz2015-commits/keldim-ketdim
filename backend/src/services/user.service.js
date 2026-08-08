@@ -14,6 +14,7 @@ const userSelect = {
   isActive: true,
   employeeId: true,
   departmentId: true,
+  hourlyRate: true,
   department: { select: { id: true, name: true } },
   schedule: { select: { id: true, startTime: true, endTime: true, scheduleType: true, workDays: true } },
   faceTemplate: true,
@@ -133,6 +134,9 @@ const create = async (data) => {
       role: data.role || 'EMPLOYEE',
       employeeId: data.employeeId || null,
       departmentId: data.departmentId || null,
+      hourlyRate: data.hourlyRate !== undefined && data.hourlyRate !== null && data.hourlyRate !== ''
+        ? Number(data.hourlyRate)
+        : null,
     },
     select: userSelect,
   });
@@ -172,6 +176,12 @@ const update = async (id, data) => {
       isActive: data.isActive !== undefined ? data.isActive : undefined,
       employeeId: data.employeeId !== undefined ? data.employeeId : undefined,
       departmentId: data.departmentId !== undefined ? data.departmentId : undefined,
+      hourlyRate:
+        data.hourlyRate !== undefined
+          ? data.hourlyRate === null || data.hourlyRate === ''
+            ? null
+            : Number(data.hourlyRate)
+          : undefined,
     },
     select: userSelect,
   });

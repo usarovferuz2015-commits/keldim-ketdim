@@ -221,6 +221,16 @@ export const dashboardApi = {
   getAttendanceRate: () => api.get('/dashboard/attendance-rate'),
 };
 
+export const payrollApi = {
+  getSummary: (params: { startDate: string; endDate: string; userId?: string }) =>
+    api.get('/payroll/summary', { params }),
+  getDaily: (params: { date: string; userId?: string }) => api.get('/payroll/daily', { params }),
+  approveOvertime: (data: { userId: string; minutesApplied: number; note?: string }) =>
+    api.post('/payroll/overtime-approval', data),
+  getOvertimeApprovals: (params?: { userId?: string; startDate?: string; endDate?: string }) =>
+    api.get('/payroll/overtime-approvals', { params }),
+};
+
 export const adminApi = {
   getStats: () => api.get('/admin/stats'),
   getAuditLogs: (params?: Record<string, unknown>) => api.get('/admin/audit-logs', { params }),

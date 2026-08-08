@@ -27,6 +27,7 @@ type EmployeeForm = {
   employeeId: string;
   phoneNumber: string;
   departmentId: string;
+  hourlyRate: string;
   scheduleType: string;
   startTime: string;
   endTime: string;
@@ -42,6 +43,7 @@ const emptyForm: EmployeeForm = {
   employeeId: '',
   phoneNumber: '',
   departmentId: '',
+  hourlyRate: '',
   scheduleType: 'FIXED',
   startTime: '09:00',
   endTime: '18:00',
@@ -144,6 +146,7 @@ export default function AdminEmployeesPage() {
       employeeId: user.employeeId || '',
       phoneNumber: user.phoneNumber || '',
       departmentId: user.departmentId || '',
+      hourlyRate: user.hourlyRate != null ? String(user.hourlyRate) : '',
       scheduleType: user.schedule?.scheduleType || 'FIXED',
       startTime: user.schedule?.startTime || '09:00',
       endTime: user.schedule?.endTime || '18:00',
@@ -184,6 +187,7 @@ export default function AdminEmployeesPage() {
         employeeId: form.employeeId.trim(),
         phoneNumber: form.phoneNumber.trim(),
         departmentId: form.departmentId || undefined,
+        hourlyRate: form.hourlyRate.trim() ? Number(form.hourlyRate) : null,
         role: 'EMPLOYEE',
       };
 
@@ -565,6 +569,20 @@ export default function AdminEmployeesPage() {
                     placeholder={editingUser ? 'O\'zgarishsiz qoldiring' : '********'}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Soatlik narx (so'm)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="500"
+                  value={form.hourlyRate}
+                  onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="Masalan 9000"
+                />
+                <p className="text-xs text-gray-400 mt-1">Kamomad va otrabotka pulini hisoblash uchun ishlatiladi</p>
               </div>
 
               <div>
