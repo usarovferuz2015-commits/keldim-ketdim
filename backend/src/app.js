@@ -1,3 +1,5 @@
+console.log(`[BOOT] node src/app.js boshlandi - ${new Date().toISOString()}`);
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -73,7 +75,8 @@ app.use('/api/admin', adminRoutes);
 
 app.use(errorHandler);
 
-app.listen(config.port, () => {
+app.listen(config.port, '0.0.0.0', () => {
+  console.log(`[BOOT] Server ${config.port}-portda (0.0.0.0) ishga tushdi [${config.nodeEnv}]`);
   logger.info(`Server ${config.port}-portda ishga tushdi [${config.nodeEnv}]`);
 });
 
