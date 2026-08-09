@@ -185,6 +185,33 @@ export function useFaceDetection() {
     return () => { cancelled = true; };
   }, []);
 
+  // SSD MobileNetV1'ning standart minConfidence (0.5) ba'zi haqiqiy holatlarda
+  // (kamera yuzga juda yaqin/katta, biroz burchak ostida va h.k.) haqiqiy
+  // yuzni ham rad etib "topilmadi" deb qaytaradi - biz buni pasaytiramiz,
+  // chunki bu faqat "landmark/descriptor ol" bosqichi; haqiqiy shaxs
+  // tasdiqlanishi keyingi bosqichda (backend'dagi descriptor solishtirish)
+  // qattiqroq chegara bilan alohida tekshiriladi, shuning uchun bu yerda
+  // yumshoqroq bo'lishi xavfsizlikka ta'sir qilmaydi.
+  const getDetectOptions = (faceapi: any) => new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 });
+
+  // Bitta video kadridan ikki marta aniqlashga urinadi: avval yorug'lik
+  // moslashtirilgan kadr bilan, agar topilmasa xom (filtrsiz) kadr bilan -
+  // ba'zi holatlarda filtr aksincha xalaqit berishi mumkin, shuning uchun
+  // ikkinchi urinish qo'shimcha xavfsizlik to'ri.
+  const detectWithFallback = async (faceapi: any, video: HTMLVideoElement, withDescriptor: boolean) => {
+    const options = getDetectOptions(faceapi);
+    const enhanced = enhanceFrame(video);
+    let result = withDescriptor
+      ? await faceapi.detectSingleFace(enhanced, options).withFaceLandmarks().withFaceDescriptor()
+      : await faceapi.detectSingleFace(enhanced, options).withFaceLandmarks();
+    if (result) return result;
+
+    result = withDescriptor
+      ? await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor()
+      : await faceapi.detectSingleFace(video, options).withFaceLandmarks();
+    return result || null;
+  };
+
   // `errored: true` = yuz aniqlash jarayonining o'zi ishlamadi (WebGL/xotira/boshqa
   // texnik xato) - bu "yuz topilmadi" bilan bir xil emas va foydalanuvchiga
   // boshqacha xabar ko'rsatilishi kerak, chunki "yorug'lik yomon" degan maslahat
@@ -198,12 +225,7 @@ export function useFaceDetection() {
     }
 
     try {
-      const frame = enhanceFrame(video);
-      const result = await faceapi
-        .detectSingleFace(frame)
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-
+      const result = await detectWithFallback(faceapi, video, true);
       if (!result) return { descriptor: null, errored: false };
       return { descriptor: result.descriptor, errored: false };
     } catch (err) {
@@ -219,8 +241,7 @@ export function useFaceDetection() {
     if (!faceapi || !video || video.videoWidth === 0) return null;
 
     try {
-      const frame = enhanceFrame(video);
-      const result = await faceapi.detectSingleFace(frame).withFaceLandmarks();
+      const result = await detectWithFallback(faceapi, video, false);
       if (!result) return null;
 
       const box = result.detection.box;
