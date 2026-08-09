@@ -183,6 +183,12 @@ model Attendance {
   livenessVerified Boolean         @default(false)
   gpsVerified      Boolean         @default(false)
 
+  // Kirish/chiqishda olingan yuz rasmi (base64 data URL) - yuz moslik
+  // chegarasi pasaytirilgani (soddalashtirish uchun) o'rniga admin har bir
+  // xodimning kelgan/ketgan rasmini ko'rib nazorat qila olishi uchun
+  checkInImage     String?         @db.Text
+  checkOutImage    String?         @db.Text
+
   // Qaysi lokatsiyada tekshirildi
   workLocationId   String?
 

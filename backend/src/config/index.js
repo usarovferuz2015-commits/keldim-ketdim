@@ -31,7 +31,11 @@ const config = {
     // holatda kuzatildi: bir xil odam 57% o'xshashlik bilan rad etilgan edi).
     // 0.45 - xavfsizlik (begona odamni qabul qilmaslik) bilan qulaylik
     // (haqiqiy xodimni rad etmaslik) o'rtasidagi muvozanatlashtirilgan qiymat.
-    similarityThreshold: parseFloat(process.env.FACE_SIMILARITY_THRESHOLD) || 0.45,
+    // 2026-08-09: Feruz so'roviga ko'ra yanada pasaytirildi (0.40) - kirish/
+    // chiqishni soddalashtirish uchun, negaki endi admin har bir kirish/
+    // chiqish rasmini ko'ra oladi (pastroq threshold begona odamni ham
+    // o'tkazib yuborish xavfini oshiradi, lekin rasm orqali admin nazorati bor).
+    similarityThreshold: parseFloat(process.env.FACE_SIMILARITY_THRESHOLD) || 0.40,
     livenessBlinkThreshold: parseFloat(process.env.LIVENESS_BLINK_THRESHOLD) || 0.3,
   },
   geofence: {

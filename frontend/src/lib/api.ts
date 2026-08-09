@@ -139,12 +139,14 @@ export const attendanceApi = {
     longitude: number;
     faceVerified: boolean;
     livenessVerified: boolean;
+    image?: string;
   }) => api.post('/attendances/check-in', data),
   checkOut: (data: {
     latitude: number;
     longitude: number;
     faceVerified: boolean;
     livenessVerified: boolean;
+    image?: string;
   }) => api.post('/attendances/check-out', data),
   getMy: (params?: Record<string, unknown>) => api.get('/attendances/my', { params }),
   getTodayStatus: () => api.get('/attendances/today'),

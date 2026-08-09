@@ -163,13 +163,13 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
       let livenessVerified = false;
 
       // Yuz mos kelgandagina tiriklik (anti-spoofing) tekshiruvini o'tkazamiz -
-      // kamera hali yopilmagan, video oqimi davom etmoqda
+      // kamera hali yopilmagan, video oqimi davom etmoqda.
+      // 2026-08-09: Feruz so'roviga ko'ra tiriklik tekshiruvi endi kirish/
+      // chiqishni BLOKLAMAYDI - faqat ma'lumot sifatida saqlanadi va admin
+      // rasm orqali har doim tekshirishi mumkin (shu bois yuz mos kelsa,
+      // tiriklik o'tmagan bo'lsa ham davom etamiz).
       if (faceOk && mode === 'verify') {
         livenessVerified = await runLivenessCheck(video);
-        if (!livenessVerified) {
-          responseData.verified = false;
-          responseData.message = 'Tiriklik tekshiruvidan o\'tmadi. Iltimos ko\'zingizni yuming yoki boshingizni sal harakatlantiring.';
-        }
       } else if (mode === 'register') {
         // Ro'yxatdan o'tishda tiriklik shart emas, faqat yuz saqlanadi
         livenessVerified = true;

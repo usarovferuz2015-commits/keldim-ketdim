@@ -25,6 +25,7 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
   const [gpsResult, setGpsResult] = useState<GpsResult | null>(null);
   const [faceVerified, setFaceVerified] = useState(false);
   const [livenessVerified, setLivenessVerified] = useState(false);
+  const [faceImage, setFaceImage] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +49,9 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
   const handleFaceSuccess = (data: { descriptor: number[]; image?: string; livenessVerified: boolean }) => {
     setFaceVerified(true);
     setLivenessVerified(data.livenessVerified);
+    setFaceImage(data.image);
     setError(null);
-    toast.success("Yuz va tiriklik tekshiruvidan o'tdi");
+    toast.success("Yuz tekshiruvidan o'tdi");
     setStep(3);
   };
 
@@ -59,7 +61,10 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
   };
 
   const handleConfirm = async () => {
-    if (!gpsResult || !faceVerified || !livenessVerified) return;
+    // Eslatma: tiriklik tekshiruvi (livenessVerified) endi shart emas - faqat
+    // ma'lumot sifatida yuboriladi. Yuz mos kelishi (faceVerified) yetarli,
+    // chunki admin endi har bir kirish/chiqish rasmini ko'ra oladi.
+    if (!gpsResult || !faceVerified) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -71,6 +76,7 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
           longitude: gpsResult.longitude,
           faceVerified,
           livenessVerified,
+          image: faceImage,
         });
         toast.success('Kirish muvaffaqiyatli qayd etildi!');
       } else {
@@ -79,6 +85,7 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
           longitude: gpsResult.longitude,
           faceVerified,
           livenessVerified,
+          image: faceImage,
         });
         toast.success('Chiqish muvaffaqiyatli qayd etildi!');
       }
@@ -99,6 +106,7 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
     setGpsResult(null);
     setFaceVerified(false);
     setLivenessVerified(false);
+    setFaceImage(undefined);
     setError(null);
     setCompleted(false);
   };
@@ -210,8 +218,8 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
               </div>
               <div className="flex justify-between gap-4">
                 <span>Tiriklik tekshiruvi:</span>
-                <span className={`font-medium ${livenessVerified ? 'text-green-700' : 'text-red-700'}`}>
-                  {livenessVerified ? 'Tasdiqlangan' : 'Tasdiqlanmagan'}
+                <span className={`font-medium ${livenessVerified ? 'text-green-700' : 'text-gray-500'}`}>
+                  {livenessVerified ? 'Tasdiqlangan' : "O'tilmadi (rasm admin uchun saqlanadi)"}
                 </span>
               </div>
               <div className="flex justify-between gap-4">

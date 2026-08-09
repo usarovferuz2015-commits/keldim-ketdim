@@ -73,6 +73,8 @@ export interface Attendance {
   checkInLongitude?: number;
   checkOutLatitude?: number;
   checkOutLongitude?: number;
+  checkInImage?: string | null;
+  checkOutImage?: string | null;
   faceVerified: boolean;
   livenessVerified: boolean;
   gpsVerified: boolean;

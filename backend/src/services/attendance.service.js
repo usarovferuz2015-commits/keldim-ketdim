@@ -19,7 +19,7 @@ const getWorkDateStart = localDayStart;
 const getWorkDateEnd = localDayEnd;
 
 const checkIn = async (userId, data) => {
-  const { latitude, longitude, faceVerified, livenessVerified } = data;
+  const { latitude, longitude, faceVerified, livenessVerified, image } = data;
   const now = new Date();
 
   const user = await prisma.user.findUnique({
@@ -117,6 +117,7 @@ const checkIn = async (userId, data) => {
         faceVerified,
         livenessVerified,
         gpsVerified: true,
+        checkInImage: image || existing.checkInImage,
         workLocationId: workLocation?.id || existing.workLocationId,
         scheduleStart: schedule.startTime,
         scheduleEnd: schedule.endTime,
@@ -152,6 +153,7 @@ const checkIn = async (userId, data) => {
       faceVerified,
       livenessVerified,
       gpsVerified: true,
+      checkInImage: image || null,
       workLocationId: workLocation?.id || null,
       lateMinutes,
       status,
@@ -168,7 +170,7 @@ const checkIn = async (userId, data) => {
 };
 
 const checkOut = async (userId, data) => {
-  const { latitude, longitude, faceVerified, livenessVerified } = data;
+  const { latitude, longitude, faceVerified, livenessVerified, image } = data;
   const now = new Date();
 
   const user = await prisma.user.findUnique({
@@ -266,6 +268,7 @@ const checkOut = async (userId, data) => {
       faceVerified: attendance.faceVerified || faceVerified,
       livenessVerified: attendance.livenessVerified || livenessVerified,
       gpsVerified: attendance.gpsVerified || true,
+      checkOutImage: image || attendance.checkOutImage,
       workLocationId: attendance.workLocationId || workLocation?.id || null,
     },
     include: {

@@ -12,6 +12,8 @@ import {
   FileSpreadsheet,
   FileText,
   Clock,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -47,6 +49,7 @@ export default function AdminAttendancePage() {
   const [userId, setUserId] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [photoModal, setPhotoModal] = useState<{ src: string; label: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -222,13 +225,14 @@ export default function AdminAttendancePage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Erta ketish</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Overtime</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Rasm</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {Array.from({ length: 10 }).map((_, j) => (
+                    {Array.from({ length: 11 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 w-20 bg-gray-200 rounded" />
                       </td>
@@ -237,7 +241,7 @@ export default function AdminAttendancePage() {
                 ))
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={11} className="px-4 py-12 text-center text-gray-500">
                     Davomat ma'lumotlari topilmadi
                   </td>
                 </tr>
@@ -292,6 +296,33 @@ export default function AdminAttendancePage() {
                         {statusLabels[rec.status] || rec.status}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        {rec.checkInImage && (
+                          <button
+                            onClick={() => setPhotoModal({ src: rec.checkInImage as string, label: `${getUserName(rec.userId)} — Kirish rasmi` })}
+                            className="w-8 h-8 rounded-lg overflow-hidden border border-gray-200 hover:ring-2 hover:ring-blue-400 transition shrink-0"
+                            title="Kirish rasmi"
+                          >
+                            <img src={rec.checkInImage} alt="Kirish" className="w-full h-full object-cover" />
+                          </button>
+                        )}
+                        {rec.checkOutImage && (
+                          <button
+                            onClick={() => setPhotoModal({ src: rec.checkOutImage as string, label: `${getUserName(rec.userId)} — Chiqish rasmi` })}
+                            className="w-8 h-8 rounded-lg overflow-hidden border border-gray-200 hover:ring-2 hover:ring-blue-400 transition shrink-0"
+                            title="Chiqish rasmi"
+                          >
+                            <img src={rec.checkOutImage} alt="Chiqish" className="w-full h-full object-cover" />
+                          </button>
+                        )}
+                        {!rec.checkInImage && !rec.checkOutImage && (
+                          <span className="text-gray-300">
+                            <ImageIcon className="w-4 h-4" />
+                          </span>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -342,6 +373,23 @@ export default function AdminAttendancePage() {
           </div>
         )}
       </div>
+
+      {photoModal && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={() => setPhotoModal(null)}
+        >
+          <div className="bg-white rounded-xl overflow-hidden max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <p className="text-sm font-medium text-gray-900">{photoModal.label}</p>
+              <button onClick={() => setPhotoModal(null)} className="p-1 rounded-md hover:bg-gray-100 text-gray-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <img src={photoModal.src} alt={photoModal.label} className="w-full h-auto" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
