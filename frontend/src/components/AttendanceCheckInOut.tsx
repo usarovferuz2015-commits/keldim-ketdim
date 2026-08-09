@@ -93,7 +93,12 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
       setCompleted(true);
       onComplete?.();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : `${typeLabel} qayd etishda xatolik yuz berdi`;
+      // Backendning aniq xabarini ko'rsatamiz (masalan "Bugun ish kuni emas",
+      // "Siz ruxsat etilgan hududdan tashqaridasiz") - aks holda axios'ning
+      // umumiy "Request failed with status code 400" xabari chiqib, xodim
+      // aslida nima xato ekanini bilolmay qolardi.
+      const anyErr = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg = anyErr?.response?.data?.message || anyErr?.message || `${typeLabel} qayd etishda xatolik yuz berdi`;
       setError(msg);
       toast.error(msg);
     } finally {

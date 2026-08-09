@@ -15,13 +15,11 @@ const validateAttendance = (req, res, next) => {
     });
   }
 
-  if (!livenessVerified) {
-    return res.status(400).json({
-      success: false,
-      message: 'Tiriklik tekshiruvi talab qilinadi',
-    });
-  }
-
+  // 2026-08-09: Feruz so'roviga ko'ra tiriklik (liveness) tekshiruvi endi
+  // kirish/chiqishni bloklamaydi - faqat ma'lumot sifatida saqlanadi (admin
+  // rasm orqali nazorat qiladi). Frontend gate'i olib tashlangan edi, lekin
+  // bu middleware'dagi qattiq talab unutilgan bo'lib, xodimlarni "Tiriklik
+  // tekshiruvi talab qilinadi" (400) bilan bloklab qolayotgan edi.
   next();
 };
 
