@@ -50,6 +50,13 @@ const emptyForm: EmployeeForm = {
   workDays: [1, 2, 3, 4, 5],
 };
 
+// Muhim: backend (attendance.service.js / payroll.service.js) haftaning kunini
+// ISO formatda hisoblaydi (1=Dushanba ... 7=Yakshanba, JS'ning getUTCDay()===0
+// holatini 7'ga aylantirib). Shu sabab Yakshanba bu yerda ham 7 bo'lishi kerak,
+// JS'ning o'z getDay() qaytaradigan 0 emas - aks holda Yakshanba kuni ish kuni
+// sifatida saqlanganda ham backend uni tanimay "Bugun ish kuni emas" deb
+// bloklab qo'yardi (2026-08-09 topilgan bug, faqat yakshanba kunlari namoyon
+// bo'lardi).
 const weekDays = [
   { value: 1, label: 'Dush' },
   { value: 2, label: 'Sesh' },
@@ -57,7 +64,7 @@ const weekDays = [
   { value: 4, label: 'Pay' },
   { value: 5, label: 'Jum' },
   { value: 6, label: 'Shan' },
-  { value: 0, label: 'Yak' },
+  { value: 7, label: 'Yak' },
 ];
 
 const scheduleLabels: Record<string, string> = {
