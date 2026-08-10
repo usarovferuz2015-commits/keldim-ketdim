@@ -78,6 +78,9 @@ export interface Attendance {
   faceVerified: boolean;
   livenessVerified: boolean;
   gpsVerified: boolean;
+  // Ochiq sessiya (hali check-out qilinmagan) uchun backend workedHours'ni
+  // jonli hisoblab qaytaradi - bu flag shuni bildiradi
+  isOpenSession?: boolean;
   workLocationId?: string;
   workLocation?: WorkLocation;
   user?: User;

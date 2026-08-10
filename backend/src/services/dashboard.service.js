@@ -1,13 +1,22 @@
 const prisma = require('../utils/prisma');
 const logger = require('../utils/logger');
+const { localDayStart, localDayEnd } = require('../utils/timezone');
 
+// Eslatma: `Attendance.workDate` Toshkent mahalliy kunining boshlanishi sifatida
+// saqlanadi (attendance.service.js'dagi getWorkDateStart orqali) - bu UTC
+// jihatdan avvalgi kunning 19:00'iga to'g'ri keladi (masalan Toshkentda
+// 10-avgust 09:57'da check-in qilingan sessiya workDate=9-avgust 19:00 UTC
+// bilan saqlanadi). Agar "bugun" oralig'i xom `setUTCHours(0,0,0,0)` bilan
+// hisoblansa (Toshkentdan 5 soat oldin boshlanadigan UTC kun), bugun ertalab
+// kelgan xodimlarning workDate'i bu oraliqdan CHETDA qolib, ular "kelmagan"/
+// "hozir ishlamayotgan" deb noto'g'ri ko'rsatilardi - real holatda kuzatilgan
+// bug shu edi (Dashboard "hozir ishlayotganlar"=0 ko'rsatgan, Davomat/Hisob-
+// kitob esa to'g'ri "hozir ishda" ko'rsatgan). Shu sabab bu yerda ham
+// attendance.service.js/payroll.service.js bilan bir xil localDayStart/End
+// ishlatiladi.
 const getTodayRange = () => {
   const now = new Date();
-  const start = new Date(now);
-  start.setUTCHours(0, 0, 0, 0);
-  const end = new Date(now);
-  end.setUTCHours(23, 59, 59, 999);
-  return { start, end };
+  return { start: localDayStart(now), end: localDayEnd(now) };
 };
 
 const getSummary = async () => {
@@ -157,12 +166,11 @@ const getLateToday = async () => {
 
 const getAttendanceRate = async () => {
   const now = new Date();
-  const end = new Date(now);
-  end.setUTCHours(23, 59, 59, 999);
+  const end = localDayEnd(now);
 
-  const start = new Date(now);
-  start.setUTCDate(start.getUTCDate() - 30);
-  start.setUTCHours(0, 0, 0, 0);
+  const thirtyDaysAgo = new Date(now);
+  thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+  const start = localDayStart(thirtyDaysAgo);
 
   const attendances = await prisma.attendance.findMany({
     where: {

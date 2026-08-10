@@ -293,8 +293,16 @@ const getAttendanceHistory = async ({ userId, startDate, endDate, status, page =
 
   if (startDate || endDate) {
     where.workDate = {};
-    if (startDate) where.workDate.gte = new Date(startDate);
-    if (endDate) where.workDate.lte = new Date(endDate);
+    // Eslatma: `workDate` Toshkent mahalliy kun boshlanishi sifatida
+    // saqlanadi (getWorkDateStart orqali) - masalan "10-avgust Toshkent"
+    // haqiqatda Aug9 19:00 UTC sifatida yotadi. Agar frontenddan kelgan
+    // sana satri (masalan "2026-08-10") to'g'ridan-to'g'ri `new Date()`ga
+    // berilsa, natija UTC yarim tunga to'g'ri keladi (Aug10 00:00 UTC) -
+    // bu esa haqiqiy workDate'dan (Aug9 19:00 UTC) KEYIN bo'lgani uchun
+    // "bugun" filtri bugungi yozuvlarni chetlab o'tardi. Shu sabab bu yerda
+    // ham getWorkDateStart/End orqali Toshkent kun chegaralariga o'tkazamiz.
+    if (startDate) where.workDate.gte = getWorkDateStart(new Date(startDate));
+    if (endDate) where.workDate.lte = getWorkDateEnd(new Date(endDate));
   }
 
   const [records, total] = await Promise.all([
@@ -322,8 +330,22 @@ const getAttendanceHistory = async ({ userId, startDate, endDate, status, page =
     prisma.attendance.count({ where }),
   ]);
 
+  // Ochiq sessiyalar (hali check-out qilinmagan) uchun `workedHours` bazada
+  // hali 0 - bu maydon faqat check-out paytida hisoblanadi. Xodim hali ishda
+  // ekanini ko'rsatish uchun (Hisob-kitob sahifasidagi kabi) shu yerda "hozircha
+  // ishlagan vaqt"ni jonli hisoblab qo'shamiz - bazaga yozilmaydi, faqat javobda
+  // ko'rsatiladi.
+  const now = new Date();
+  const data = records.map((r) => {
+    if (r.checkInTime && !r.checkOutTime) {
+      const liveWorkedHours = Math.round(((now.getTime() - new Date(r.checkInTime).getTime()) / (1000 * 60 * 60)) * 100) / 100;
+      return { ...r, workedHours: Math.max(0, liveWorkedHours), isOpenSession: true };
+    }
+    return { ...r, isOpenSession: false };
+  });
+
   return {
-    data: records,
+    data,
     pagination: {
       page,
       limit,

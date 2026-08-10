@@ -65,11 +65,15 @@ const getMyStats = async (req, res, next) => {
 
 const getAll = async (req, res, next) => {
   try {
-    const { userId, startDate, endDate, status, page, limit } = req.query;
+    const { userId, date, startDate, endDate, status, page, limit } = req.query;
+    // Frontend (admin/attendance sahifasi) bitta kunlik filtr sifatida `date`
+    // yuboradi, `startDate`/`endDate` emas - bu maydon ilgari umuman
+    // o'qilmagan edi, shu sabab sana filtri sukut bo'yicha hech narsani
+    // filtrlamas edi (har doim eng oxirgi yozuvlar ko'rsatilardi).
     const result = await attendanceService.getAttendanceHistory({
       userId,
-      startDate,
-      endDate,
+      startDate: startDate || date,
+      endDate: endDate || date,
       status,
       page: parseInt(page, 10) || 1,
       limit: parseInt(limit, 10) || 50,

@@ -265,6 +265,11 @@ export default function AdminAttendancePage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {rec.workedHours.toFixed(1)} soat
+                      {rec.isOpenSession && (
+                        <span className="ml-1.5 inline-flex items-center gap-1 text-green-600 text-xs font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> hozir
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {rec.lateMinutes > 0 ? (
