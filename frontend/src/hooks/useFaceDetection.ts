@@ -104,7 +104,7 @@ function estimateBrightness(ctx2d: CanvasRenderingContext2D): number {
 // canvas ustida ishlaydi. Xira yoki notekis yoritilgan muhitlarda aniqlashni
 // yaxshilaydi - avval kadr hech qanday ishlov berilmasdan to'g'ridan-to'g'ri
 // modelga yuborilardi.
-function enhanceFrame(video: HTMLVideoElement): HTMLCanvasElement {
+function enhanceFrame(video: HTMLVideoElement, forceFilter?: string): HTMLCanvasElement {
   const width = video.videoWidth;
   const height = video.videoHeight;
 
@@ -125,27 +125,30 @@ function enhanceFrame(video: HTMLVideoElement): HTMLCanvasElement {
     return workCanvas;
   }
 
-  let brightness = 128;
-  const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
-  if (sampleCtx) {
-    try {
-      sampleCtx.drawImage(video, 0, 0, 32, 32);
-      brightness = estimateBrightness(sampleCtx);
-    } catch {
-      // getImageData xavfsizlik/boshqa sabab bilan ishlamasa - filtrsiz davom etamiz
-      brightness = 128;
-    }
-  }
+  let filter = forceFilter ?? 'none';
 
-  // 0-255 oralig'ida "normal" markaz ~128. Juda past/yuqori qiymatlarda
-  // mos ravishda kompensatsiya qo'llaymiz.
-  let filter = 'none';
-  if (brightness < 60) {
-    filter = 'brightness(1.7) contrast(1.3)';
-  } else if (brightness < 95) {
-    filter = 'brightness(1.35) contrast(1.18)';
-  } else if (brightness > 195) {
-    filter = 'brightness(0.85) contrast(1.1)';
+  if (!forceFilter) {
+    let brightness = 128;
+    const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+    if (sampleCtx) {
+      try {
+        sampleCtx.drawImage(video, 0, 0, 32, 32);
+        brightness = estimateBrightness(sampleCtx);
+      } catch {
+        // getImageData xavfsizlik/boshqa sabab bilan ishlamasa - filtrsiz davom etamiz
+        brightness = 128;
+      }
+    }
+
+    // 0-255 oralig'ida "normal" markaz ~128. Juda past/yuqori qiymatlarda
+    // mos ravishda kompensatsiya qo'llaymiz.
+    if (brightness < 60) {
+      filter = 'brightness(1.7) contrast(1.3)';
+    } else if (brightness < 95) {
+      filter = 'brightness(1.35) contrast(1.18)';
+    } else if (brightness > 195) {
+      filter = 'brightness(0.85) contrast(1.1)';
+    }
   }
 
   workCtx.filter = filter;
@@ -192,23 +195,34 @@ export function useFaceDetection() {
   // tasdiqlanishi keyingi bosqichda (backend'dagi descriptor solishtirish)
   // qattiqroq chegara bilan alohida tekshiriladi, shuning uchun bu yerda
   // yumshoqroq bo'lishi xavfsizlikka ta'sir qilmaydi.
-  const getDetectOptions = (faceapi: any) => new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 });
+  // 2026-08-10: 0.3 -> 0.2 ga pasaytirildi - telefondan (ayniqsa mashina
+  // ichida, orqa fondan yorug'lik tushib old tomoni qorong'iroq bo'lgan
+  // holatlarda - "backlit") "yuz aniqlanmadi" xatosi ko'p chiqayotgani
+  // sababli.
+  const getDetectOptions = (faceapi: any) => new faceapi.SsdMobilenetv1Options({ minConfidence: 0.2 });
 
-  // Bitta video kadridan ikki marta aniqlashga urinadi: avval yorug'lik
-  // moslashtirilgan kadr bilan, agar topilmasa xom (filtrsiz) kadr bilan -
-  // ba'zi holatlarda filtr aksincha xalaqit berishi mumkin, shuning uchun
-  // ikkinchi urinish qo'shimcha xavfsizlik to'ri.
+  // Bitta video kadridan bir necha marta aniqlashga urinadi:
+  // 1) yorug'likka moslashtirilgan kadr (o'rtacha yorqinlikka qarab filtr)
+  // 2) xom (filtrsiz) kadr - ba'zan filtr aksincha xalaqit beradi
+  // 3) majburiy kuchli yorqinlik/kontrast filtri - "backlit" holatlar uchun
+  //    (orqa fondan kuchli yorug'lik, yuz esa nisbatan qorong'i - shu payt
+  //    o'rtacha kadr yorqinligi "normal" ko'rinib qolishi mumkin, shuning
+  //    uchun avtomatik moslashuv (enhanceFrame) buni pastdagi kabi
+  //    aniqlamay qolishi mumkin, majburiy urinish qo'shimcha xavfsizlik to'ri)
   const detectWithFallback = async (faceapi: any, video: HTMLVideoElement, withDescriptor: boolean) => {
     const options = getDetectOptions(faceapi);
-    const enhanced = enhanceFrame(video);
-    let result = withDescriptor
-      ? await faceapi.detectSingleFace(enhanced, options).withFaceLandmarks().withFaceDescriptor()
-      : await faceapi.detectSingleFace(enhanced, options).withFaceLandmarks();
+    const run = (input: HTMLVideoElement | HTMLCanvasElement) =>
+      withDescriptor
+        ? faceapi.detectSingleFace(input, options).withFaceLandmarks().withFaceDescriptor()
+        : faceapi.detectSingleFace(input, options).withFaceLandmarks();
+
+    let result = await run(enhanceFrame(video));
     if (result) return result;
 
-    result = withDescriptor
-      ? await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor()
-      : await faceapi.detectSingleFace(video, options).withFaceLandmarks();
+    result = await run(video);
+    if (result) return result;
+
+    result = await run(enhanceFrame(video, 'brightness(1.6) contrast(1.35)'));
     return result || null;
   };
 
