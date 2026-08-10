@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { leaveApi } from '@/lib/api';
-import type { LeaveRequest } from '@/types';
+import { leaveApi, userApi } from '@/lib/api';
+import type { LeaveRequest, LeaveType, User } from '@/types';
 import {
   Check,
   X,
@@ -10,6 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
+  Plus,
+  Send,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -18,6 +20,14 @@ const leaveTypeLabels: Record<string, string> = {
   VACATION: 'Ta\'til',
   PERSONAL: 'Shaxsiy',
   OTHER: 'Boshqa',
+};
+
+const emptyAssignForm = {
+  userId: '',
+  leaveType: 'VACATION' as LeaveType,
+  startDate: '',
+  endDate: '',
+  reason: '',
 };
 
 const statusLabels: Record<string, string> = {
@@ -49,6 +59,55 @@ export default function AdminLeavesPage() {
   const [total, setTotal] = useState(0);
 
   const [rejectModal, setRejectModal] = useState<{ leave: LeaveRequest; reason: string } | null>(null);
+
+  const [users, setUsers] = useState<User[]>([]);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignForm, setAssignForm] = useState(emptyAssignForm);
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
+
+  useEffect(() => {
+    userApi.getAll({ role: 'EMPLOYEE', limit: 500 }).then(({ data }) => {
+      setUsers(data.data || []);
+    }).catch(() => {});
+  }, []);
+
+  const handleAssign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignForm.userId) {
+      toast.error('Xodimni tanlang');
+      return;
+    }
+    if (!assignForm.startDate || !assignForm.endDate) {
+      toast.error('Boshlanish va tugash sanalarini kiriting');
+      return;
+    }
+    if (assignForm.startDate > assignForm.endDate) {
+      toast.error("Boshlanish sanasi tugash sanasidan keyin bo'lishi mumkin emas");
+      return;
+    }
+
+    setAssignSubmitting(true);
+    try {
+      await leaveApi.create({
+        userId: assignForm.userId,
+        leaveType: assignForm.leaveType,
+        startDate: assignForm.startDate,
+        endDate: assignForm.endDate,
+        reason: assignForm.reason.trim() || undefined,
+      });
+      toast.success("Dam olish belgilandi (avtomatik tasdiqlangan)");
+      setAssignModalOpen(false);
+      setAssignForm(emptyAssignForm);
+      setStatusFilter('APPROVED');
+      fetchLeaves();
+    } catch (err: unknown) {
+      const anyErr = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg = anyErr?.response?.data?.message || anyErr?.message || 'Belgilashda xatolik';
+      toast.error(msg);
+    } finally {
+      setAssignSubmitting(false);
+    }
+  };
 
   const fetchLeaves = useCallback(async () => {
     setLoading(true);
@@ -127,9 +186,18 @@ export default function AdminLeavesPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Dam olish arizalari</h2>
-        <p className="text-gray-500 mt-1">Xodimlar dam olish arizalari ro'yxati</p>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Dam olish arizalari</h2>
+          <p className="text-gray-500 mt-1">Xodimlar dam olish arizalari ro'yxati</p>
+        </div>
+        <button
+          onClick={() => setAssignModalOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          Xodim uchun belgilash
+        </button>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -313,6 +381,115 @@ export default function AdminLeavesPage() {
                 Rad etish
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Xodim uchun dam olish belgilash modali */}
+      {assignModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Xodim uchun dam olish belgilash</h3>
+              <button
+                onClick={() => setAssignModalOpen(false)}
+                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 mb-4">
+              Bu yerda belgilangan dam olish darhol tasdiqlangan holatda saqlanadi - alohida tasdiqlash shart emas.
+            </p>
+
+            <form onSubmit={handleAssign} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Xodim</label>
+                <select
+                  value={assignForm.userId}
+                  onChange={(e) => setAssignForm((p) => ({ ...p, userId: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                  required
+                >
+                  <option value="">Xodimni tanlang</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.firstName} {u.lastName || ''} {u.employeeId ? `(${u.employeeId})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Turi</label>
+                <select
+                  value={assignForm.leaveType}
+                  onChange={(e) => setAssignForm((p) => ({ ...p, leaveType: e.target.value as LeaveType }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                >
+                  {Object.entries(leaveTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Boshlanish</label>
+                  <input
+                    type="date"
+                    value={assignForm.startDate}
+                    onChange={(e) => setAssignForm((p) => ({ ...p, startDate: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Tugash</label>
+                  <input
+                    type="date"
+                    value={assignForm.endDate}
+                    onChange={(e) => setAssignForm((p) => ({ ...p, endDate: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Sabab (ixtiyoriy)</label>
+                <textarea
+                  value={assignForm.reason}
+                  onChange={(e) => setAssignForm((p) => ({ ...p, reason: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                  placeholder="Sababni yozing..."
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAssignModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  disabled={assignSubmitting}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition"
+                >
+                  {assignSubmitting ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Belgilash
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

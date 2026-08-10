@@ -4,12 +4,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import Link from 'next/link';
 import { Toaster } from 'react-hot-toast';
-import { Home, Clock, Calendar, User, LogOut } from 'lucide-react';
+import { Home, Clock, Calendar, User, LogOut, Palmtree } from 'lucide-react';
 
 const tabs = [
   { href: '/employee/dashboard', label: 'Bosh sahifa', icon: Home },
   { href: '/employee/attendance', label: 'Davomat', icon: Clock },
   { href: '/employee/schedule', label: 'Jadval', icon: Calendar },
+  { href: '/employee/leave', label: 'Dam olish', icon: Palmtree },
   { href: '/employee/profile', label: 'Profil', icon: User },
 ];
 

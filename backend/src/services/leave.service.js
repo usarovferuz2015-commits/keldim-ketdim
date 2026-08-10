@@ -59,8 +59,29 @@ const getById = async (id) => {
   return leave;
 };
 
-const create = async (userId, data) => {
+// Tasdiqlangan ariza sanalariga to'g'ri keladigan ABSENT davomat yozuvlarini
+// ON_LEAVE'ga o'tkazadi - ham xodim o'z-o'zini so'rab keyin admin tasdiqlaganda
+// (updateStatus), ham admin to'g'ridan-to'g'ri (avtomatik tasdiqlangan holda)
+// belgilaganda ishlatiladigan umumiy logika.
+const markAbsencesAsOnLeave = async (userId, startDate, endDate) => {
+  await prisma.attendance.updateMany({
+    where: {
+      userId,
+      workDate: { gte: startDate, lte: endDate },
+      status: 'ABSENT',
+    },
+    data: { status: 'ON_LEAVE' },
+  });
+};
+
+// options.approvedById berilsa - ariza DARHOL 'APPROVED' holatida yaratiladi
+// (admin xodim uchun to'g'ridan-to'g'ri dam olish belgilaganda ishlatiladi -
+// keyin alohida tasdiqlash bosqichi shart emas). options.allowPastDate esa
+// admin o'tgan sana uchun ham (masalan orqaga qarab tuzatish uchun) ariza
+// yarata olishini bildiradi - oddiy xodim so'rovi uchun bu true bo'lmaydi.
+const create = async (userId, data, options = {}) => {
   const { leaveType, startDate, endDate, reason } = data;
+  const { approvedById = null, allowPastDate = false } = options;
 
   if (!leaveType || !startDate || !endDate) {
     const error = new Error('Dam olish turi, boshlanish va tugash sanalari talab qilinadi');
@@ -83,12 +104,14 @@ const create = async (userId, data) => {
     throw error;
   }
 
-  const now = new Date();
-  now.setUTCHours(0, 0, 0, 0);
-  if (start < now) {
-    const error = new Error('O\'tgan sana uchun ariza yaratib bo\'lmaydi');
-    error.statusCode = 400;
-    throw error;
+  if (!allowPastDate) {
+    const now = new Date();
+    now.setUTCHours(0, 0, 0, 0);
+    if (start < now) {
+      const error = new Error('O\'tgan sana uchun ariza yaratib bo\'lmaydi');
+      error.statusCode = 400;
+      throw error;
+    }
   }
 
   const overlapping = await prisma.leaveRequest.findFirst({
@@ -114,11 +137,17 @@ const create = async (userId, data) => {
       startDate: start,
       endDate: end,
       reason: reason || null,
+      status: approvedById ? 'APPROVED' : undefined,
+      approvedBy: approvedById || null,
     },
     include: leaveInclude,
   });
 
-  logger.info(`Dam olish arizasi yaratildi: ${leave.id} (${userId})`);
+  if (approvedById) {
+    await markAbsencesAsOnLeave(userId, start, end);
+  }
+
+  logger.info(`Dam olish arizasi yaratildi: ${leave.id} (${userId})${approvedById ? ' - admin tomonidan darhol tasdiqlangan' : ''}`);
   return leave;
 };
 
@@ -160,17 +189,7 @@ const updateStatus = async (id, status, rejectedReason, approvedBy) => {
   });
 
   if (status === 'APPROVED') {
-    await prisma.attendance.updateMany({
-      where: {
-        userId: leave.userId,
-        workDate: {
-          gte: leave.startDate,
-          lte: leave.endDate,
-        },
-        status: 'ABSENT',
-      },
-      data: { status: 'ON_LEAVE' },
-    });
+    await markAbsencesAsOnLeave(leave.userId, leave.startDate, leave.endDate);
   }
 
   logger.info(`Ariza holati yangilandi: ${id} -> ${status}`);

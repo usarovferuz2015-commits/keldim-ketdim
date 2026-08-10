@@ -158,7 +158,7 @@ export const leaveApi = {
   getAll: (params?: Record<string, unknown>) => api.get('/leaves', { params }),
   getMy: () => api.get('/leaves/my'),
   getById: (id: string) => api.get(`/leaves/${id}`),
-  create: (data: { leaveType: string; startDate: string; endDate: string; reason?: string }) =>
+  create: (data: { leaveType: string; startDate: string; endDate: string; reason?: string; userId?: string }) =>
     api.post('/leaves', data),
   updateStatus: (id: string, data: { status: string; rejectedReason?: string }) =>
     api.put(`/leaves/${id}/status`, data),

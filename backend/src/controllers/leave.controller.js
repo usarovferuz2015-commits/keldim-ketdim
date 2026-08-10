@@ -46,7 +46,19 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const result = await leaveService.create(req.user.id, req.body);
+    const { userId: targetUserId, ...leaveData } = req.body;
+
+    // Admin boshqa xodim uchun `userId` ko'rsatib ariza yuborsa - bu "xodim
+    // uchun to'g'ridan-to'g'ri dam olish belgilash" (avtomatik tasdiqlangan
+    // holda, alohida tasdiqlash bosqichisiz). Oddiy xodim so'rovi bo'lsa
+    // (userId ko'rsatilmagan yoki o'zinikiga teng), avvalgidek PENDING
+    // holatida yaratiladi va admin keyin ko'rib chiqadi.
+    const isAdminAssigningOther = req.user.role === 'ADMIN' && targetUserId && targetUserId !== req.user.id;
+
+    const result = isAdminAssigningOther
+      ? await leaveService.create(targetUserId, leaveData, { approvedById: req.user.id, allowPastDate: true })
+      : await leaveService.create(req.user.id, leaveData);
+
     res.status(201).json({ success: true, data: result });
   } catch (error) {
     logger.error('Ariza yaratish xatolik:', error.message);
