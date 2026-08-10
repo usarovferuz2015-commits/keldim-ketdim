@@ -44,6 +44,15 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Ba'zi mobil brauzerlarda (ayniqsa iOS Safari) `srcObject` dasturiy
+        // ravishda o'rnatilganda `autoPlay` atributi yetarli bo'lmay qoladi va
+        // video hech qachon boshlanmaydi - shu sabab "Rasmga olish" tugmasi
+        // (isVideoReady=false bo'lgani uchun) doim disabled bo'lib qolaverardi,
+        // foydalanuvchiga xuddi tugma "bosilmayotgandek" tuyulardi. Aniq
+        // `.play()` chaqiruvi bu holatni oldini oladi.
+        videoRef.current.play().catch(() => {
+          // E'tiborsiz qoldiramiz - pastdagi poll-fallback baribir ishga tushadi
+        });
       }
       setIsStreaming(true);
     } catch (err: unknown) {
@@ -72,6 +81,23 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
   const onVideoPlay = useCallback(() => {
     setIsVideoReady(true);
   }, []);
+
+  // Poll-fallback: `onPlay`/`onLoadedMetadata` kabi hodisalar ba'zi mobil
+  // brauzerlarda (ayniqsa iOS Safari, ba'zi Android WebView'lar) ishonchli
+  // ishlamaydi - shu sabab video oqimi haqiqatda kadr bermoqda-yo'qligini
+  // to'g'ridan-to'g'ri `videoWidth`dan tekshirib, "Rasmga olish" tugmasi abadiy
+  // disabled bo'lib qolib ketmasligini kafolatlaymiz.
+  useEffect(() => {
+    if (!isStreaming || isVideoReady) return;
+    const interval = setInterval(() => {
+      const v = videoRef.current;
+      if (v && v.videoWidth > 0) {
+        setIsVideoReady(true);
+        clearInterval(interval);
+      }
+    }, 150);
+    return () => clearInterval(interval);
+  }, [isStreaming, isVideoReady]);
 
   const runLivenessCheck = useCallback(async (video: HTMLVideoElement): Promise<boolean> => {
     setIsCheckingLiveness(true);
@@ -243,7 +269,7 @@ export function FaceVerification({ mode, onSuccess, onError }: Props) {
 
           <div className={`relative w-full max-w-sm rounded-xl overflow-hidden bg-black aspect-[4/3] ${!isStreaming && !cameraError ? 'hidden' : ''}`}>
             <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover"
-              onPlay={onVideoPlay} />
+              onPlay={onVideoPlay} onPlaying={onVideoPlay} onLoadedMetadata={onVideoPlay} onCanPlay={onVideoPlay} />
             {(!isVideoReady || isProcessing) && isStreaming && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 px-4 text-center">
                 <Loader2 className="w-6 h-6 text-white animate-spin" />
