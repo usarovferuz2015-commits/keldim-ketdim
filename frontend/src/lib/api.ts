@@ -150,7 +150,7 @@ export const attendanceApi = {
   }) => api.post('/attendances/check-out', data),
   getMy: (params?: Record<string, unknown>) => api.get('/attendances/my', { params }),
   getTodayStatus: () => api.get('/attendances/today'),
-  getMyStats: () => api.get('/attendances/stats'),
+  getMyStats: (params?: { startDate?: string; endDate?: string }) => api.get('/attendances/stats', { params }),
   getAll: (params?: Record<string, unknown>) => api.get('/attendances', { params }),
 };
 

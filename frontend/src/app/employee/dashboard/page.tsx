@@ -29,10 +29,10 @@ export default function EmployeeDashboardPage() {
   const [todayStatus, setTodayStatus] = useState<{ status: string; checkedIn: boolean; checkedOut: boolean } | null>(null);
   const [recentAttendance, setRecentAttendance] = useState<Attendance[]>([]);
   const [stats, setStats] = useState<{
-    todayHours: number;
-    monthlyHours: number;
-    lateCount: number;
+    totalWorkedHours: number;
+    lateDays: number;
   } | null>(null);
+  const [todayHours, setTodayHours] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,17 +42,37 @@ export default function EmployeeDashboardPage() {
     setLoading(true);
     setError(null);
     try {
+      // Oylik statistika joriy oyga cheklanishi kerak (avval hech qanday sana
+      // yuborilmasdi, shu sabab "Oylik soat" aslida BARCHA VAQT bo'yicha
+      // jamlangan qiymatni ko'rsatib turardi).
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth() + 1;
+      const monthStart = `${y}-${String(m).padStart(2, '0')}-01`;
+      const monthEnd = `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+
       const [scheduleRes, statusRes, attRes, statsRes] = await Promise.all([
         scheduleApi.getMy().catch(() => ({ data: { data: null } })),
         attendanceApi.getTodayStatus().catch(() => ({ data: { data: null } })),
         attendanceApi.getMy({ limit: 7, sort: '-workDate' }).catch(() => ({ data: { data: [] } })),
-        attendanceApi.getMyStats().catch(() => ({ data: { data: null } })),
+        attendanceApi.getMyStats({ startDate: monthStart, endDate: monthEnd }).catch(() => ({ data: { data: null } })),
       ]);
 
       setSchedule(scheduleRes.data.data || null);
       setTodayStatus(statusRes.data.data || null);
-      setRecentAttendance(attRes.data.data || []);
+      const records: Attendance[] = attRes.data.data || [];
+      setRecentAttendance(records);
       setStats(statsRes.data.data || null);
+
+      // "Bugun ishlangan": recentAttendance (getAttendanceHistory) ochiq
+      // sessiyalar uchun ishlagan vaqtni allaqachon jonli hisoblab beradi -
+      // shu sabab bugungi barcha sessiyalarni (bir necha marta kirish/chiqish
+      // bo'lishi mumkin) yig'ib qo'yamiz.
+      const todayLocalStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' });
+      const todaySum = records
+        .filter((r) => new Date(r.workDate).toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' }) === todayLocalStr)
+        .reduce((sum, r) => sum + (r.workedHours || 0), 0);
+      setTodayHours(todaySum);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Ma'lumotlarni yuklashda xatolik";
       setError(msg);
@@ -199,19 +219,19 @@ export default function EmployeeDashboardPage() {
           <StatsCard
             icon={Timer}
             label="Bugun ishlangan"
-            value={stats?.todayHours != null ? `${stats.todayHours.toFixed(1)} soat` : '0 soat'}
+            value={`${todayHours.toFixed(1)} soat`}
             color="text-telegram"
           />
           <StatsCard
             icon={Hourglass}
             label="Oylik soat"
-            value={stats?.monthlyHours != null ? `${stats.monthlyHours.toFixed(0)} soat` : '0 soat'}
+            value={stats?.totalWorkedHours != null ? `${stats.totalWorkedHours.toFixed(0)} soat` : '0 soat'}
             color="text-green-600"
           />
           <StatsCard
             icon={AlertTriangle}
             label="Kechikishlar"
-            value={stats?.lateCount ?? 0}
+            value={stats?.lateDays ?? 0}
             color="text-orange-500"
           />
         </div>

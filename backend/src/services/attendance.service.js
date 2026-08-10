@@ -440,8 +440,13 @@ const getStats = async ({ userId, startDate, endDate }) => {
   const where = { userId };
   if (startDate || endDate) {
     where.workDate = {};
-    if (startDate) where.workDate.gte = new Date(startDate);
-    if (endDate) where.workDate.lte = new Date(endDate);
+    // Eslatma: attendance.service.js'ning boshqa joylarida bo'lgani kabi,
+    // sana satrlari (masalan "2026-08-01") to'g'ridan-to'g'ri `new Date()`ga
+    // berilsa UTC yarim tunga to'g'ri keladi, lekin `workDate` Toshkent
+    // mahalliy kun boshlanishi sifatida saqlanadi - shu farq oy boshidagi/
+    // oxiridagi kunlarni statistikadan chetlab qo'yishi mumkin edi.
+    if (startDate) where.workDate.gte = getWorkDateStart(new Date(startDate));
+    if (endDate) where.workDate.lte = getWorkDateEnd(new Date(endDate));
   }
 
   const records = await prisma.attendance.findMany({
@@ -460,12 +465,25 @@ const getStats = async ({ userId, startDate, endDate }) => {
     orderBy: { workDate: 'desc' },
   });
 
+  // Ochiq sessiya (hali check-out qilinmagan) uchun bazadagi workedHours=0 -
+  // faqat check-out paytida hisoblanadi. Statistikada "bugun ishlagan
+  // vaqt"ni yo'qotib qo'ymaslik uchun (masalan xodim hozir ishda bo'lsa ham
+  // "Jami soat" 0 ko'rsatmasligi kerak) shu yerda jonli hisoblab qo'shamiz.
+  const now = new Date();
+  const liveWorkedHours = (r) => {
+    if (r.checkInTime && !r.checkOutTime) {
+      const h = (now.getTime() - new Date(r.checkInTime).getTime()) / (1000 * 60 * 60);
+      return Math.max(0, Math.round(h * 100) / 100);
+    }
+    return r.workedHours || 0;
+  };
+
   const totalRecords = records.length;
   const presentDays = records.filter((r) => r.status === 'PRESENT').length;
   const lateDays = records.filter((r) => r.status === 'LATE' || r.lateMinutes > 0).length;
   const earlyLeaveDays = records.filter((r) => r.status === 'EARLY_LEAVE' || r.earlyLeaveMinutes > 0).length;
   const absentDays = records.filter((r) => r.status === 'ABSENT').length;
-  const totalWorkedHours = records.reduce((sum, r) => sum + (r.workedHours || 0), 0);
+  const totalWorkedHours = records.reduce((sum, r) => sum + liveWorkedHours(r), 0);
   const totalLateMinutes = records.reduce((sum, r) => sum + (r.lateMinutes || 0), 0);
   const totalOvertimeHours = records.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
   const avgWorkedHours = totalRecords > 0 ? totalWorkedHours / totalRecords : 0;

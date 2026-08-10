@@ -52,7 +52,7 @@ export default function EmployeeAttendancePage() {
         attendanceApi.getMy({ startDate, endDate, page, limit: 20, sort: '-workDate' }).catch(() => ({
           data: { success: false, data: [] as Attendance[], pagination: { page: 1, limit: 20, total: 0, totalPages: 1 } } satisfies ApiResponse<Attendance[]>,
         })),
-        attendanceApi.getMyStats().catch(() => ({ data: { data: null } })),
+        attendanceApi.getMyStats({ startDate, endDate }).catch(() => ({ data: { data: null } })),
       ]);
 
       setRecords(attRes.data.data || []);
