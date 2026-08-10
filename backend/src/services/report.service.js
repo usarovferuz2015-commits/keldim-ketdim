@@ -2,13 +2,16 @@ const prisma = require('../utils/prisma');
 const logger = require('../utils/logger');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
+const { localDayStart, localDayEnd } = require('../utils/timezone');
 
+// Xom UTC kun chegaralari (avvalgi setUTCHours yondashuvi) Toshkent mahalliy
+// kuni bilan mos kelmaydi - workDate bazada "Toshkent kuni boshlanishi" UTC
+// instant sifatida saqlanadi (masalan 10-avgust Toshkent = 2026-08-09T19:00Z).
+// UTC chegara bilan filtrlash bugungi/joriy oy yozuvlarini sirtdan tashqarida
+// qoldirib, hisobot/eksportni bo'sh chiqarib yuborardi.
 const getDateRange = (start, end) => {
-  const startDate = start ? new Date(start) : new Date();
-  startDate.setUTCHours(0, 0, 0, 0);
-
-  const endDate = end ? new Date(end) : new Date();
-  endDate.setUTCHours(23, 59, 59, 999);
+  const startDate = localDayStart(start ? new Date(start) : new Date());
+  const endDate = localDayEnd(end ? new Date(end) : new Date());
 
   return { startDate, endDate };
 };
@@ -155,8 +158,10 @@ const generateMonthlyReport = async (year, month) => {
     throw error;
   }
 
-  const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-  const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+  // localDayStart/End'ga UTC-midnight sana beramiz - ular Toshkent kuni
+  // chegarasiga aylantiradi (yuqoridagi getDateRange bilan bir xil sabab).
+  const startDate = localDayStart(new Date(Date.UTC(year, month - 1, 1)));
+  const endDate = localDayEnd(new Date(Date.UTC(year, month, 0)));
 
   const records = await fetchAttendances({
     workDate: { gte: startDate, lte: endDate },
