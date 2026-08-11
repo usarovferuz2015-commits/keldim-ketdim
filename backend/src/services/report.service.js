@@ -38,7 +38,7 @@ const computeAttendanceStats = (records) => {
 };
 
 const fetchAttendances = async (where = {}) => {
-  return prisma.attendance.findMany({
+  const records = await prisma.attendance.findMany({
     where,
     include: {
       user: {
@@ -54,6 +54,24 @@ const fetchAttendances = async (where = {}) => {
       workLocation: { select: { id: true, name: true } },
     },
     orderBy: { workDate: 'asc' },
+  });
+
+  // Ochiq sessiyalar (hali check-out qilinmagan, xodim hozir ishda) uchun
+  // bazadagi `workedHours` hamon 0 - bu maydon faqat check-out paytida
+  // hisoblanadi va yoziladi. Shu sabab kun davomida (xodim hali ishlab
+  // turganida) hisobot/eksport olinsa, u "0 soat ishlagan" deb noto'g'ri
+  // ko'rsatardi - garchi u kelgan va hozir ishlayotgan bo'lsa ham.
+  // `attendance.service.js`dagi davomat ro'yxati endpoint'i xuddi shu
+  // muammoni allaqachon "jonli" hisoblash bilan hal qilgan - bu yerda ham
+  // bazaga yozmasdan, faqat javobda xuddi shunday jonli hisoblab beramiz.
+  const now = new Date();
+  return records.map((r) => {
+    if (r.checkInTime && !r.checkOutTime) {
+      const liveWorkedHours =
+        Math.round(((now.getTime() - new Date(r.checkInTime).getTime()) / (1000 * 60 * 60)) * 100) / 100;
+      return { ...r, workedHours: Math.max(0, liveWorkedHours) };
+    }
+    return r;
   });
 };
 
