@@ -233,6 +233,9 @@ export interface PayrollRangeSummary {
   totalShortfallMinutes: number;
   totalOvertimeMinutes: number;
   approvedOvertimeMinutes: number;
+  approvableOvertimeMinutes: number;
+  bonusOvertimeMinutes: number;
+  bonusPay: number | null;
   outstandingDebtMinutes: number;
   outstandingDebtAmount: number | null;
   estimatedPay: number | null;

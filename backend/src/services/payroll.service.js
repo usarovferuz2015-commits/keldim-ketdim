@@ -286,13 +286,45 @@ const getRangeSummary = async ({ userIds, startDate, endDate }) => {
       if (day.gaps.length > 0) daysWithGaps += 1;
     }
 
-    const approvedOvertimeMinutes = approvedByUser.get(user.id) || 0;
+    const approvedOvertimeMinutesRaw = approvedByUser.get(user.id) || 0;
+
+    // Xavfsizlik chegarasi: admin tasdiqlagan daqiqa naqadar katta bo'lmasin,
+    // uning moliyaviy ta'siri (qarzni yopish + ustama) xodim HAQIQATDA ortiqcha
+    // ishlagan vaqtdan (qarz + jadvaldan tashqari ishlagan soatlar) oshib
+    // ketmasligi kerak - aks holda operator xatosi (masalan noto'g'ri son
+    // kiritish) "havodan" pul yaratib qo'yishi mumkin edi.
+    // 2026-08-11: Feruz so'roviga ko'ra qo'shildi - jadvaldan tashqari
+    // ishlangan soatlar endi faqat qarzni yopish uchun emas, balki qarzdan
+    // ortiqcha qismi xodimning soatbay stavkasi bo'yicha ALOHIDA USTAMA
+    // sifatida ham qo'shiladi (avvalgidek "otrabotka" faqat qarzni kamaytirar,
+    // ortig'i hech qanday ta'sir qilmasdan yo'qolib ketardi).
+    const approvedOvertimeMinutes = Math.min(
+      approvedOvertimeMinutesRaw,
+      totalShortfallMinutes + totalOvertimeMinutes
+    );
+
     const outstandingDebtMinutes = Math.max(0, totalShortfallMinutes - approvedOvertimeMinutes);
     const outstandingDebtAmount =
       user.hourlyRate != null ? Math.round((outstandingDebtMinutes / 60) * user.hourlyRate) : null;
+
+    // Tasdiqlangan otrabotka avval qarzni yopadi; qolgan (agar bo'lsa) qismi
+    // ustama - xodimning ANKETASIDAGI soatbay stavkasi bo'yicha to'g'ridan-to'g'ri
+    // qo'shiladi (masalan stavka 10 000 so'm/soat bo'lsa, 2 soat ustama = 20 000 so'm).
+    const bonusOvertimeMinutes = Math.max(0, approvedOvertimeMinutes - totalShortfallMinutes);
+    const bonusPay =
+      user.hourlyRate != null ? Math.round((bonusOvertimeMinutes / 60) * user.hourlyRate) : null;
+
+    // Admin panelida "hali tasdiqlash mumkin bo'lgan" miqdorni ko'rsatish uchun
+    // (tugmani yoqish/o'chirish va modal'dagi standart qiymat uchun ham ishlatiladi)
+    const approvableOvertimeMinutes = Math.max(
+      0,
+      totalShortfallMinutes + totalOvertimeMinutes - approvedOvertimeMinutesRaw
+    );
+
     const estimatedPay =
       user.hourlyRate != null
-        ? Math.round(((totalScheduledMinutes - outstandingDebtMinutes) / 60) * user.hourlyRate)
+        ? Math.round(((totalScheduledMinutes - outstandingDebtMinutes) / 60) * user.hourlyRate) +
+          (bonusPay || 0)
         : null;
 
     results.push({
@@ -307,6 +339,9 @@ const getRangeSummary = async ({ userIds, startDate, endDate }) => {
       totalShortfallMinutes,
       totalOvertimeMinutes,
       approvedOvertimeMinutes,
+      approvableOvertimeMinutes,
+      bonusOvertimeMinutes,
+      bonusPay,
       outstandingDebtMinutes,
       outstandingDebtAmount,
       estimatedPay,

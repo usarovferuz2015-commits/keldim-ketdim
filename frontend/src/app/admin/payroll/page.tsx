@@ -112,7 +112,7 @@ export default function AdminPayrollPage() {
 
   const openApproveModal = (row: PayrollRangeSummary) => {
     setApproveModal(row);
-    setApproveMinutes(String(row.outstandingDebtMinutes || ''));
+    setApproveMinutes(String(row.approvableOvertimeMinutes || row.outstandingDebtMinutes || ''));
     setApproveNote('');
   };
 
@@ -126,7 +126,7 @@ export default function AdminPayrollPage() {
     setApproving(true);
     try {
       await payrollApi.approveOvertime({ userId: approveModal.userId, minutesApplied: minutes, note: approveNote });
-      toast.success('Otrabotka tasdiqlandi, qarz kamaytirildi');
+      toast.success('Otrabotka tasdiqlandi (qarz kamaydi, ortig\'i ustama sifatida qo\'shildi)');
       setApproveModal(null);
       fetchSummary();
     } catch (err: unknown) {
@@ -142,8 +142,9 @@ export default function AdminPayrollPage() {
       shortfall: acc.shortfall + r.totalShortfallMinutes,
       debt: acc.debt + r.outstandingDebtMinutes,
       debtAmount: acc.debtAmount + (r.outstandingDebtAmount || 0),
+      bonusAmount: acc.bonusAmount + (r.bonusPay || 0),
     }),
-    { shortfall: 0, debt: 0, debtAmount: 0 }
+    { shortfall: 0, debt: 0, debtAmount: 0, bonusAmount: 0 }
   );
 
   if (error) {
@@ -201,7 +202,7 @@ export default function AdminPayrollPage() {
       </div>
 
       {/* Umumiy ko'rsatkichlar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
             <Clock className="w-5 h-5 text-orange-600" />
@@ -227,6 +228,15 @@ export default function AdminPayrollPage() {
           <div>
             <p className="text-xs text-gray-500">Ushlab qolinadigan summa</p>
             <p className="text-lg font-bold text-gray-900">{formatSom(totals.debtAmount)}</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+            <Wallet className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Jami ustama</p>
+            <p className="text-lg font-bold text-gray-900">{formatSom(totals.bonusAmount)}</p>
           </div>
         </div>
       </div>
@@ -292,7 +302,14 @@ export default function AdminPayrollPage() {
                           {formatMinutes(row.totalShortfallMinutes)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-green-600">{formatMinutes(row.approvedOvertimeMinutes)}</td>
+                      <td className="px-4 py-3 text-sm text-green-600">
+                        {formatMinutes(row.approvedOvertimeMinutes)}
+                        {row.bonusPay ? (
+                          <span className="block text-xs text-emerald-600 font-medium">
+                            + ustama {formatSom(row.bonusPay)}
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="px-4 py-3 text-sm">
                         <span className={row.outstandingDebtMinutes > 0 ? 'text-red-600 font-semibold' : 'text-gray-400'}>
                           {formatMinutes(row.outstandingDebtMinutes)}
@@ -304,7 +321,7 @@ export default function AdminPayrollPage() {
                         <div className="flex items-center justify-end">
                           <button
                             onClick={() => openApproveModal(row)}
-                            disabled={row.outstandingDebtMinutes <= 0}
+                            disabled={row.approvableOvertimeMinutes <= 0}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <Check className="w-3.5 h-3.5" />
@@ -369,9 +386,13 @@ export default function AdminPayrollPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">Otrabotka tasdiqlash</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              <strong>{approveModal.firstName} {approveModal.lastName || ''}</strong> uchun qarzdan qancha daqiqa yopilsin?
-              Joriy qarz: <strong>{formatMinutes(approveModal.outstandingDebtMinutes)}</strong>
+            <p className="text-sm text-gray-500 mb-1">
+              <strong>{approveModal.firstName} {approveModal.lastName || ''}</strong> uchun jadvaldan tashqari ishlagan
+              necha daqiqa tasdiqlansin? Joriy qarz: <strong>{formatMinutes(approveModal.outstandingDebtMinutes)}</strong>,
+              jadvaldan tashqari ishlagan: <strong>{formatMinutes(approveModal.totalOvertimeMinutes)}</strong>
+            </p>
+            <p className="text-xs text-gray-400 mb-4">
+              Avval qarzni yopadi, qolgan qismi xodimning soatbay stavkasi bo&apos;yicha ustama sifatida qo&apos;shiladi.
             </p>
             <label className="block text-sm font-medium text-gray-700 mb-1">Daqiqa</label>
             <input
