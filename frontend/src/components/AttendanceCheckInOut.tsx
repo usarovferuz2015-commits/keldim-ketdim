@@ -51,19 +51,20 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
     setLivenessVerified(data.livenessVerified);
     setFaceImage(data.image);
     setError(null);
-    toast.success("Yuz tekshiruvidan o'tdi");
+    toast.success('Rasm olindi');
     setStep(3);
   };
 
   const handleFaceError = () => {
-    setError('Yuz tekshirish muvaffaqiyatsiz yakunlandi. Qayta urinib ko\'ring.');
-    toast.error('Yuz tekshirilmadi');
+    setError('Rasmga olishda xatolik yuz berdi. Qayta urinib ko\'ring.');
+    toast.error('Rasmga olinmadi');
   };
 
   const handleConfirm = async () => {
-    // Eslatma: tiriklik tekshiruvi (livenessVerified) endi shart emas - faqat
-    // ma'lumot sifatida yuboriladi. Yuz mos kelishi (faceVerified) yetarli,
-    // chunki admin endi har bir kirish/chiqish rasmini ko'ra oladi.
+    // Eslatma: 2026-08-11 dan boshlab yuz mosligi va tiriklik umuman
+    // tekshirilmaydi (Feruz so'roviga ko'ra) - asosiy nazorat GPS, rasm esa
+    // faqat admin ko'rib chiqishi uchun saqlanadi. `faceVerified` shu sabab
+    // FaceVerification muvaffaqiyatli rasmga olganini bildiradi, xolos.
     if (!gpsResult || !faceVerified) return;
 
     setIsSubmitting(true);
@@ -118,7 +119,7 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
 
   const steps = [
     { num: 1, label: 'Joylashuv', icon: MapPin },
-    { num: 2, label: 'Yuz va tiriklik', icon: Camera },
+    { num: 2, label: 'Rasmga olish', icon: Camera },
     { num: 3, label: 'Tasdiqlash', icon: ClipboardCheck },
   ];
 
@@ -218,14 +219,8 @@ export function AttendanceCheckInOut({ type, onComplete }: Props) {
                 </div>
               )}
               <div className="flex justify-between gap-4">
-                <span>Yuz tekshiruvi:</span>
-                <span className="text-green-700 font-medium">Tasdiqlangan</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span>Tiriklik tekshiruvi:</span>
-                <span className={`font-medium ${livenessVerified ? 'text-green-700' : 'text-gray-500'}`}>
-                  {livenessVerified ? 'Tasdiqlangan' : "O'tilmadi (rasm admin uchun saqlanadi)"}
-                </span>
+                <span>Rasm:</span>
+                <span className="text-green-700 font-medium">Olindi (admin ko'rib chiqadi)</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span>Amal turi:</span>

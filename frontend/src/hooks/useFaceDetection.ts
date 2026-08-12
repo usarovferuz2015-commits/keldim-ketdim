@@ -157,12 +157,20 @@ function enhanceFrame(video: HTMLVideoElement, forceFilter?: string): HTMLCanvas
   return workCanvas;
 }
 
-export function useFaceDetection() {
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+// `skip=true` bo'lsa og'ir yuz aniqlash modellari (SSD MobileNetV1 va h.k.)
+// umuman yuklanmaydi - `status` darhol 'ready' bo'ladi. 2026-08-11: Feruz
+// so'roviga ko'ra kirish/chiqishda ("verify" rejimi) rasm umuman
+// tekshirilmasin, faqat kamera ochilib rasmga olinsin (admin keyin qo'lda
+// ko'rib chiqadi) - shu sabab FaceVerification "verify" rejimida bu hook'ni
+// skip=true bilan chaqiradi, xodim sekin/notekis internetda og'ir modelni
+// kutib turmaydi va "yuz aniqlanmadi" xatosi bilan umuman to'qnashmaydi.
+export function useFaceDetection(skip = false) {
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(skip ? 'ready' : 'loading');
   const [error, setError] = useState<string | null>(null);
   const faceapiRef = useRef<any>(null);
 
   useEffect(() => {
+    if (skip) return;
     let cancelled = false;
 
     const load = async () => {
@@ -186,7 +194,7 @@ export function useFaceDetection() {
 
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [skip]);
 
   // SSD MobileNetV1'ning standart minConfidence (0.5) ba'zi haqiqiy holatlarda
   // (kamera yuzga juda yaqin/katta, biroz burchak ostida va h.k.) haqiqiy
