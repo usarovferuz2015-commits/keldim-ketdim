@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const attendanceController = require('../controllers/attendance.controller');
-const { auth } = require('../middleware/auth');
+const { auth, authorize } = require('../middleware/auth');
 const validateAttendance = require('../middleware/validateAttendance');
 const auditLog = require('../middleware/auditLog');
 
@@ -12,5 +12,12 @@ router.get('/my', auth, attendanceController.getMyAttendance);
 router.get('/today', auth, attendanceController.getTodayStatus);
 router.get('/stats', auth, attendanceController.getMyStats);
 router.get('/', auth, attendanceController.getAll);
+router.post(
+  '/admin/correct',
+  auth,
+  authorize('ADMIN'),
+  auditLog('ADMIN_ATTENDANCE_CORRECT', 'ATTENDANCE'),
+  attendanceController.adminUpsertAttendance
+);
 
 module.exports = router;

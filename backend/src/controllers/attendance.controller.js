@@ -63,6 +63,17 @@ const getMyStats = async (req, res, next) => {
   }
 };
 
+const adminUpsertAttendance = async (req, res, next) => {
+  try {
+    const { userId, date, checkInTime, checkOutTime } = req.body;
+    const result = await attendanceService.adminUpsertAttendance({ userId, date, checkInTime, checkOutTime });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('Admin davomat tuzatish xatolik:', error.message);
+    next(error);
+  }
+};
+
 const getAll = async (req, res, next) => {
   try {
     const { userId, date, startDate, endDate, status, page, limit } = req.query;
@@ -92,4 +103,5 @@ module.exports = {
   getTodayStatus,
   getMyStats,
   getAll,
+  adminUpsertAttendance,
 };

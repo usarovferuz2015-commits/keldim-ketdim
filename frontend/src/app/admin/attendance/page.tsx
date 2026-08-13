@@ -14,8 +14,30 @@ import {
   Clock,
   Image as ImageIcon,
   X,
+  Pencil,
+  Plus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+// Admin qo'lda kirish/chiqish vaqtini kiritganda/tahrirlaganda, u har doim
+// Toshkent devor soati sifatida talqin qilinadi (do'kon Toshkentda, admin ham
+// odatda shu yerdan kiradi) - "+05:00" ofsetini aniq qo'shib yuboramiz, aks
+// holda backend buni brauzer/qurilma vaqt zonasiga qarab noto'g'ri talqin
+// qilib qo'yishi mumkin edi (loyihada bir necha marta uchragan UTC+5 xatosi
+// bilan bir xil sinf - bu yerda oldindan oldini olamiz).
+const toTashkentIso = (inputValue: string): string | undefined => {
+  if (!inputValue) return undefined;
+  return `${inputValue}:00+05:00`;
+};
+
+// Bazadagi UTC ISO satrni datetime-local input uchun "YYYY-MM-DDTHH:mm"
+// ko'rinishiga, Toshkent devor soati bo'yicha aylantiradi.
+const toTashkentInputValue = (isoString?: string | null): string => {
+  if (!isoString) return '';
+  const d = new Date(new Date(isoString).getTime() + 5 * 60 * 60000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+};
 
 const statusLabels: Record<string, string> = {
   PRESENT: 'Keldi',
@@ -50,6 +72,13 @@ export default function AdminAttendancePage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [photoModal, setPhotoModal] = useState<{ src: string; label: string } | null>(null);
+  const [correctModal, setCorrectModal] = useState<{
+    userId: string;
+    date: string;
+    checkInTime: string;
+    checkOutTime: string;
+  } | null>(null);
+  const [correcting, setCorrecting] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -118,6 +147,53 @@ export default function AdminAttendancePage() {
     }
   };
 
+  const openCorrectModalForRecord = (rec: Attendance) => {
+    setCorrectModal({
+      userId: rec.userId,
+      date: rec.workDate.slice(0, 10),
+      checkInTime: toTashkentInputValue(rec.checkInTime),
+      checkOutTime: toTashkentInputValue(rec.checkOutTime),
+    });
+  };
+
+  const openCorrectModalNew = () => {
+    setCorrectModal({
+      userId: userId || users[0]?.id || '',
+      date: date || new Date().toISOString().slice(0, 10),
+      checkInTime: '',
+      checkOutTime: '',
+    });
+  };
+
+  const handleCorrectSubmit = async () => {
+    if (!correctModal) return;
+    if (!correctModal.userId || !correctModal.date) {
+      toast.error("Xodim va sana tanlanishi shart");
+      return;
+    }
+    if (!correctModal.checkInTime && !correctModal.checkOutTime) {
+      toast.error("Kirish yoki chiqish vaqtidan kamida bittasi kerak");
+      return;
+    }
+    setCorrecting(true);
+    try {
+      await attendanceApi.adminCorrect({
+        userId: correctModal.userId,
+        date: correctModal.date,
+        checkInTime: toTashkentIso(correctModal.checkInTime),
+        checkOutTime: toTashkentIso(correctModal.checkOutTime),
+      });
+      toast.success('Davomat tuzatildi');
+      setCorrectModal(null);
+      fetchData();
+    } catch (err: unknown) {
+      const axiosMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(axiosMsg || (err instanceof Error ? err.message : 'Tuzatishda xatolik'));
+    } finally {
+      setCorrecting(false);
+    }
+  };
+
   const getUserName = (uid: string) => {
     const u = users.find((x) => x.id === uid);
     return u ? `${u.firstName} ${u.lastName || ''}`.trim() : '—';
@@ -173,6 +249,13 @@ export default function AdminAttendancePage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={openCorrectModalNew}
+            className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+          >
+            <Plus className="w-4 h-4" />
+            Davomat tuzatish
+          </button>
+          <button
             onClick={handleExportExcel}
             className="inline-flex items-center gap-2 px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition"
           >
@@ -226,13 +309,14 @@ export default function AdminAttendancePage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Overtime</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Rasm</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Amallar</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {Array.from({ length: 11 }).map((_, j) => (
+                    {Array.from({ length: 12 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 w-20 bg-gray-200 rounded" />
                       </td>
@@ -241,7 +325,7 @@ export default function AdminAttendancePage() {
                 ))
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={12} className="px-4 py-12 text-center text-gray-500">
                     Davomat ma'lumotlari topilmadi
                   </td>
                 </tr>
@@ -328,6 +412,15 @@ export default function AdminAttendancePage() {
                         )}
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => openCorrectModalForRecord(rec)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Tuzatish
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -392,6 +485,76 @@ export default function AdminAttendancePage() {
               </button>
             </div>
             <img src={photoModal.src} alt={photoModal.label} className="w-full h-auto" />
+          </div>
+        </div>
+      )}
+
+      {correctModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => !correcting && setCorrectModal(null)}
+        >
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Davomat tuzatish</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Kirish/chiqish vaqtini qo'lda kiriting yoki tuzating. Bo'sh qoldirilgan maydon o'zgarmaydi.
+              Vaqtlar Toshkent mahalliy vaqti sifatida qabul qilinadi.
+            </p>
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">Xodim</label>
+            <select
+              value={correctModal.userId}
+              onChange={(e) => setCorrectModal({ ...correctModal, userId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+            >
+              <option value="">Tanlang...</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.firstName} {u.lastName || ''} {u.employeeId ? `(${u.employeeId})` : ''}
+                </option>
+              ))}
+            </select>
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
+            <input
+              type="date"
+              value={correctModal.date}
+              onChange={(e) => setCorrectModal({ ...correctModal, date: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">Kirish vaqti</label>
+            <input
+              type="datetime-local"
+              value={correctModal.checkInTime}
+              onChange={(e) => setCorrectModal({ ...correctModal, checkInTime: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">Chiqish vaqti</label>
+            <input
+              type="datetime-local"
+              value={correctModal.checkOutTime}
+              onChange={(e) => setCorrectModal({ ...correctModal, checkOutTime: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-6 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setCorrectModal(null)}
+                disabled={correcting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleCorrectSubmit}
+                disabled={correcting}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50"
+              >
+                {correcting ? 'Saqlanmoqda...' : 'Saqlash'}
+              </button>
+            </div>
           </div>
         </div>
       )}

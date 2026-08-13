@@ -152,6 +152,8 @@ export const attendanceApi = {
   getTodayStatus: () => api.get('/attendances/today'),
   getMyStats: (params?: { startDate?: string; endDate?: string }) => api.get('/attendances/stats', { params }),
   getAll: (params?: Record<string, unknown>) => api.get('/attendances', { params }),
+  adminCorrect: (data: { userId: string; date: string; checkInTime?: string; checkOutTime?: string }) =>
+    api.post('/attendances/admin/correct', data),
 };
 
 export const leaveApi = {
