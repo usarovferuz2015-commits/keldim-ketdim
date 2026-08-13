@@ -9,7 +9,7 @@
 // tasdiqlagan otrabotka orqali qanchalik yopgani.
 
 const prisma = require('../utils/prisma');
-const { localMinutesOfDay, localIsoWeekday, localDayStart, localDayEnd } = require('../utils/timezone');
+const { localMinutesOfDay, localIsoWeekday, localDayStart, localDayEnd, localDateString } = require('../utils/timezone');
 
 const parseTimeToMinutes = (timeStr) => {
   const [hours, minutes] = timeStr.split(':').map(Number);
@@ -42,7 +42,7 @@ const computeDaySummary = async (user, dateInput) => {
   const isPast = dayStart.getTime() < getDayStart(now).getTime();
 
   const base = {
-    date: dayStart.toISOString().split('T')[0],
+    date: localDateString(dayStart),
     scheduleStart: user.schedule?.startTime || null,
     scheduleEnd: user.schedule?.endTime || null,
     scheduledMinutes: 0,
@@ -93,7 +93,14 @@ const computeDaySummary = async (user, dateInput) => {
   });
 
   const sessionsOut = sessions.map((s) => {
-    const closedAt = s.checkOutTime || (isToday && !s.checkOutTime ? now : null);
+    // MUHIM: bu yerda `isToday` shartini QOYMASLIK kerak. Sessiya boshqa kunga
+    // (masalan kechagi kunga) tegishli bo'lib, hali ham ochiq bo'lishi mumkin -
+    // xodim chiqishni bosmasdan uyga ketib, sessiya yarim tundan o'tib ketgan.
+    // Avval faqat "bugungi" ochiq sessiyalar uchun `now` ishlatilar edi, shu
+    // sabab kechagi (yoki undan oldingi) kunning ochiq sessiyasi 0 daqiqa
+    // ishlangan deb hisoblanib, kamomad noto'g'ri ravishda oshib ketardi
+    // (2026-08-12 kunidagi Feruza Saidova holati shu bug sabab edi).
+    const closedAt = s.checkOutTime || (s.checkInTime ? now : null);
     const workedMin = s.checkInTime && closedAt ? minutesBetween(new Date(s.checkInTime), new Date(closedAt)) : 0;
     return {
       id: s.id,

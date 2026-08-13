@@ -44,10 +44,18 @@ const localDayEnd = (date) => {
   return fromLocalShifted(l);
 };
 
+// Berilgan lahza tushgan Toshkent kalendar sanasini "YYYY-MM-DD" ko'rinishida
+// qaytaradi. MUHIM: bevosita `date.toISOString().split('T')[0]` ishlatish
+// noto'g'ri - UTC va Toshkent (UTC+5) orasidagi farq sabab, masalan Toshkentda
+// 12-avgust kuni 00:00-04:59 oralig'ida bu hali ham UTC bo'yicha 11-avgust
+// bo'ladi, natijada sana bir kunga orqaga siljib ko'rsatiladi.
+const localDateString = (date) => toLocalShifted(date).toISOString().split('T')[0];
+
 module.exports = {
   TZ_OFFSET_MINUTES,
   localMinutesOfDay,
   localIsoWeekday,
   localDayStart,
   localDayEnd,
+  localDateString,
 };
