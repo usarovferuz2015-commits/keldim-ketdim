@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { reportApi, userApi } from '@/lib/api';
 import type { ReportData, User } from '@/types';
 import {
@@ -41,7 +41,14 @@ export default function AdminReportsPage() {
   const [monthStart, setMonthStart] = useState(new Date().toISOString().slice(0, 7));
   const [userId, setUserId] = useState('');
 
+  // Tab/sana/xodim tez o'zgarganda eskirgan so'rov javobi yangisidan keyin
+  // qaytib, noto'g'ri (masalan boshqa davrga tegishli, shishirilgan) hisobotni
+  // ko'rsatib qo'ymasligi uchun - faqat eng oxirgi so'rov natijasi qabul
+  // qilinadi (Hisob-kitob sahifasida aynan shu turdagi xato aniqlangan edi).
+  const requestIdRef = useRef(0);
+
   const fetchReport = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -68,12 +75,14 @@ export default function AdminReportsPage() {
         }
         res = await reportApi.monthly(params);
       }
+      if (requestIdRef.current !== requestId) return;
       setReport(res.data.data || null);
     } catch (err: unknown) {
+      if (requestIdRef.current !== requestId) return;
       const msg = err instanceof Error ? err.message : "Ma'lumotlarni yuklashda xatolik";
       setError(msg);
     } finally {
-      setLoading(false);
+      if (requestIdRef.current === requestId) setLoading(false);
     }
   }, [activeTab, date, weekStart, monthStart, userId]);
 

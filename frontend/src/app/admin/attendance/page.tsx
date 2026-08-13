@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { attendanceApi, userApi, reportApi } from '@/lib/api';
 import type { Attendance, User } from '@/types';
 import {
@@ -100,7 +100,13 @@ export default function AdminAttendancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Filtrlar (sana/xodim) tez o'zgarganda eskirgan so'rov javobi yangisidan
+  // keyin qaytib, noto'g'ri (eski filtrga tegishli) ma'lumotni ko'rsatib
+  // qo'ymasligi uchun - faqat eng oxirgi so'rov natijasi qabul qilinadi.
+  const requestIdRef = useRef(0);
+
   const fetchData = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -112,14 +118,16 @@ export default function AdminAttendancePage() {
         attendanceApi.getAll(params),
         userApi.getAll({ role: 'EMPLOYEE', limit: 500 }),
       ]);
+      if (requestIdRef.current !== requestId) return;
       setRecords(attRes.data.data || []);
       setTotal(attRes.data.pagination?.total || 0);
       setUsers(userRes.data.data || []);
     } catch (err: unknown) {
+      if (requestIdRef.current !== requestId) return;
       const msg = err instanceof Error ? err.message : "Ma'lumotlarni yuklashda xatolik";
       setError(msg);
     } finally {
-      setLoading(false);
+      if (requestIdRef.current === requestId) setLoading(false);
     }
   }, [page, date, userId]);
 

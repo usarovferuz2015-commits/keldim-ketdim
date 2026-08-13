@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useState, useCallback } from 'react';
+import { Fragment, useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { payrollApi } from '@/lib/api';
 import type { PayrollRangeSummary, PayrollDaySummary, PayrollDayStatus } from '@/types';
@@ -74,17 +74,30 @@ export default function AdminPayrollPage() {
 
   const isSingleDay = startDate === endDate;
 
+  // Sana oraliqni tez o'zgartirganda (masalan ikkala sana maydonini ketma-ket
+  // bosganda) bir necha so'rov deyarli bir vaqtda jo'nashi mumkin - agar
+  // OLDINGI (eskiroq) so'rov javobi YANGI so'rovnikidan KEYIN qaytsa, eski
+  // (noto'g'ri davrga tegishli) natija ekranda qolib ketishi mumkin edi.
+  // Masalan "12.08-13.08" (oraliq, hali ikkinchi sana yangilanmagan payt)
+  // so'rovi "12.08-12.08" dan keyin qaytib, 2 baravar shishirilgan raqamlarni
+  // ko'rsatib qo'yishi mumkin edi. `requestIdRef` shu holatni oldini oladi -
+  // faqat ENG OXIRGI boshlangan so'rovning natijasi qabul qilinadi.
+  const requestIdRef = useRef(0);
+
   const fetchSummary = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
       const { data } = await payrollApi.getSummary({ startDate, endDate });
+      if (requestIdRef.current !== requestId) return; // eskirgan so'rov - e'tiborsiz qoldiramiz
       setRows(data.data || []);
     } catch (err: unknown) {
+      if (requestIdRef.current !== requestId) return;
       const axiosMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(axiosMsg || (err instanceof Error ? err.message : "Ma'lumotlarni yuklashda xatolik"));
     } finally {
-      setLoading(false);
+      if (requestIdRef.current === requestId) setLoading(false);
     }
   }, [startDate, endDate]);
 
