@@ -58,7 +58,13 @@ export function PushReminderPrompt() {
     if (!subscription) {
       const { data } = await pushApi.getPublicKey();
       const publicKey = data?.data?.publicKey;
-      if (!publicKey) return; // server tomonda VAPID sozlanmagan - jimgina chiqamiz
+      // Server tomonda VAPID kalitlari hali sozlanmagan bo'lishi mumkin -
+      // bu holda chindan ham obuna qila olmaymiz, shuning uchun xato
+      // tashlaymiz (jim qolib "yoqildi" deb noto'g'ri xabar berish o'rniga).
+      // `ensureSubscribed` sahifa yuklanganda (permission='granted' bo'lsa)
+      // ham chaqiriladi va o'sha yerda xatolik jimgina yutiladi - shu sabab
+      // bu yerda xato tashlash xavfsiz.
+      if (!publicKey) throw new Error('VAPID kalitlari serverda sozlanmagan');
 
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
