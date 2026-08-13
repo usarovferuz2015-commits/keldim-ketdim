@@ -79,6 +79,26 @@ export default function AdminAttendancePage() {
     checkOutTime: string;
   } | null>(null);
   const [correcting, setCorrecting] = useState(false);
+  const [pendingAutoCorrect, setPendingAutoCorrect] = useState(false);
+
+  // "Hisob-kitob" sahifasidagi "Davomat" tugmasi shu sahifaga
+  // ?userId=...&date=...&correct=1 bilan yo'naltiradi - shu parametrlar
+  // bo'lsa filtrlarni moslab, ma'lumot yuklangach tuzatish oynasini
+  // avtomatik ochamiz (mavjud yozuv bo'lsa uni, bo'lmasa bo'sh formani).
+  // `useSearchParams()` o'rniga oddiy `window.location.search` ishlatildi -
+  // bu Next.js'ning Suspense chegarasi talabini keraksiz murakkablashtirmaydi
+  // (faqat mijoz tomonida, mount bo'lgach bir marta ishlaydi).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const qUserId = params.get('userId');
+    const qDate = params.get('date');
+    const qCorrect = params.get('correct');
+    if (qDate) setDate(qDate);
+    if (qUserId) setUserId(qUserId);
+    if (qCorrect === '1' && qUserId) setPendingAutoCorrect(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -110,6 +130,24 @@ export default function AdminAttendancePage() {
   useEffect(() => {
     setPage(1);
   }, [date, userId]);
+
+  // URL orqali kelgan avtomatik tuzatish so'rovi - ma'lumot yuklanishini
+  // kutib, mos yozuv topilsa uni, topilmasa bo'sh formani ochadi.
+  useEffect(() => {
+    if (!pendingAutoCorrect || loading) return;
+    const match = records.find((r) => r.userId === userId);
+    if (match) {
+      setCorrectModal({
+        userId: match.userId,
+        date: match.workDate.slice(0, 10),
+        checkInTime: toTashkentInputValue(match.checkInTime),
+        checkOutTime: toTashkentInputValue(match.checkOutTime),
+      });
+    } else if (userId && date) {
+      setCorrectModal({ userId, date, checkInTime: '', checkOutTime: '' });
+    }
+    setPendingAutoCorrect(false);
+  }, [pendingAutoCorrect, loading, records, userId, date]);
 
   const handleExportExcel = async () => {
     try {

@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { payrollApi } from '@/lib/api';
 import type { PayrollRangeSummary, PayrollDaySummary, PayrollDayStatus } from '@/types';
 import {
@@ -12,6 +13,7 @@ import {
   Check,
   Clock,
   LogOut as LogOutIcon,
+  Pencil,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -56,6 +58,7 @@ function formatTime(t?: string): string {
 }
 
 export default function AdminPayrollPage() {
+  const router = useRouter();
   const [startDate, setStartDate] = useState(todayStr());
   const [endDate, setEndDate] = useState(todayStr());
   const [rows, setRows] = useState<PayrollRangeSummary[]>([]);
@@ -318,7 +321,15 @@ export default function AdminPayrollPage() {
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatSom(row.estimatedPay)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => router.push(`/admin/attendance?userId=${row.userId}&date=${endDate}&correct=1`)}
+                            title="Davomatni tuzatish"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Davomat
+                          </button>
                           <button
                             onClick={() => openApproveModal(row)}
                             disabled={row.approvableOvertimeMinutes <= 0}
