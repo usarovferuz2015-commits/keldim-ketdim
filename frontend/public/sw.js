@@ -27,6 +27,51 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Push bildirishnomalar - masalan "chiqishni unutmang" eslatmasi.
+// Backend JSON payload yuboradi: { title, body, tag, url }.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { title: 'Keldim Ketdim', body: event.data ? event.data.text() : '' };
+  }
+
+  const title = data.title || 'Keldim Ketdim';
+  const options = {
+    body: data.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: data.tag || 'keldim-ketdim-notify',
+    data: { url: data.url || '/' },
+    requireInteraction: false,
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Bildirishnomaga bosilganda, tegishli sahifani ochadi (yoki mavjud
+// oynani shu sahifaga fokuslaydi, agar allaqachon ochiq bo'lsa)
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        const clientUrl = new URL(client.url);
+        if (clientUrl.origin === self.location.origin && 'focus' in client) {
+          client.navigate(targetUrl).catch(() => {});
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;

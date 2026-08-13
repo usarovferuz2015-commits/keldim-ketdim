@@ -77,6 +77,7 @@ model User {
   refreshTokens    RefreshToken[]
   overtimeApprovals   OvertimeApproval[] @relation("UserOvertimeApprovals")
   approvedOvertimes   OvertimeApproval[] @relation("ApprovedOvertimeApprovals")
+  pushSubscriptions   PushSubscription[]
 
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
@@ -275,6 +276,28 @@ model OvertimeApproval {
   @@index([userId])
   @@index([createdAt])
   @@map("overtime_approvals")
+}
+
+// ============================================================
+// Push bildirishnomalar (masalan: "chiqishni unutmang" eslatmasi)
+// ============================================================
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  // Brauzerning Push API orqali bergan obuna ma'lumotlari - shu uch qiymat
+  // bilan web-push kutubxonasi orqali shu qurilmaga xabar yuborish mumkin.
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // ============================================================

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import { authApi } from '@/lib/api';
 import { Toaster } from 'react-hot-toast';
+import { PushReminderPrompt } from './PushReminderPrompt';
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const { setUser, setLoading, isLoading, isAuthenticated } = useAuthStore();
@@ -46,6 +47,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+      {isAuthenticated && <PushReminderPrompt />}
       {children}
     </>
   );

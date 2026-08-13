@@ -235,6 +235,12 @@ export const payrollApi = {
     api.get('/payroll/overtime-approvals', { params }),
 };
 
+export const pushApi = {
+  getPublicKey: () => api.get('/push/public-key'),
+  subscribe: (subscription: PushSubscriptionJSON) => api.post('/push/subscribe', { subscription }),
+  unsubscribe: (endpoint: string) => api.post('/push/unsubscribe', { endpoint }),
+};
+
 export const adminApi = {
   getStats: () => api.get('/admin/stats'),
   getAuditLogs: (params?: Record<string, unknown>) => api.get('/admin/audit-logs', { params }),

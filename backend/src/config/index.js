@@ -52,6 +52,14 @@ const config = {
   upload: {
     maxSizeMb: parseInt(process.env.UPLOAD_MAX_SIZE_MB, 10) || 5,
   },
+  // Push bildirishnomalar (masalan "chiqishni unutmang" eslatmasi) uchun -
+  // kalitlar `web-push`ning generateVAPIDKeys() orqali bir marta yaratiladi,
+  // Railway'da environment variable sifatida saqlanadi (kodga yozilmaydi).
+  vapid: {
+    publicKey: process.env.VAPID_PUBLIC_KEY || '',
+    privateKey: process.env.VAPID_PRIVATE_KEY || '',
+    subject: process.env.VAPID_SUBJECT || 'mailto:admin@keldimketdim.uz',
+  },
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
 };
 
