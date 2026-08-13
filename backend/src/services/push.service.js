@@ -10,12 +10,28 @@ const logger = require('../utils/logger');
 const config = require('../config');
 
 let vapidConfigured = false;
+let vapidBroken = false;
+// MUHIM: `webpush.setVapidDetails` kalit noto'g'ri formatda bo'lsa (masalan
+// 32 baytga to'g'ri kelmasa) SYNCHRONOUS throw qiladi. Bu funksiya
+// `startShiftReminderJob()` orqali `app.listen` callback'i ichida
+// chaqirilgani uchun, try/catch bo'lmasa bitta noto'g'ri env-o'zgaruvchi
+// BUTUN SERVERNI ishga tushishidan to'xtatib qo'yar edi (2026-08-13:
+// productionda VAPID_PRIVATE_KEY qiymati tasodifan buzilib, aynan shu
+// sabab deploy healthcheck'da qulab tushgan holat kuzatildi). Endi xato
+// bo'lsa faqat push funksiyasi o'chirilgan holda qoladi, server ishlayveradi.
 const ensureVapid = () => {
   if (vapidConfigured) return true;
+  if (vapidBroken) return false;
   if (!config.vapid.publicKey || !config.vapid.privateKey) return false;
-  webpush.setVapidDetails(config.vapid.subject, config.vapid.publicKey, config.vapid.privateKey);
-  vapidConfigured = true;
-  return true;
+  try {
+    webpush.setVapidDetails(config.vapid.subject, config.vapid.publicKey, config.vapid.privateKey);
+    vapidConfigured = true;
+    return true;
+  } catch (error) {
+    vapidBroken = true;
+    logger.error("VAPID kalitlari noto'g'ri formatda - push bildirishnomalar o'chirilgan holda qoladi:", error.message);
+    return false;
+  }
 };
 
 const saveSubscription = async (userId, subscription) => {
