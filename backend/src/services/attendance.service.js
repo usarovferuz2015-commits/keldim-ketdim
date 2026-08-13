@@ -653,6 +653,44 @@ const adminUpsertAttendance = async ({ userId, date, checkInTime, checkOutTime }
   return { before: existing, after };
 };
 
+// Ochiq sessiyani jadval bo'yicha belgilangan tugash vaqtiga (`scheduleEndDate`)
+// avtomatik yopadi. 2026-08-13: Feruz so'roviga ko'ra qo'shildi -
+// shiftReminder.job.js smena tugaganidan 1 soat o'tsa ham xodim hali
+// chiqishni bosmagan bo'lsa shu funksiyani chaqiradi. Haqiqiy check-out
+// (attendance.service.checkOut) dan farqi: `now` o'rniga jadval tugash
+// vaqti ishlatiladi - shu sabab bu "kechikkan chiqish" emas, balki "jadval
+// bo'yicha belgilangan soat qo'yildi" degani (earlyLeave/overtime hosil
+// bo'lmaydi). GPS/yuz tekshiruvi bu yerda bo'lishi mumkin emas - mavjud
+// (check-in paytidagi) qiymatlar o'zgarishsiz qoladi.
+const autoCloseOverdueSession = async (attendanceId, scheduleEndDate) => {
+  const attendance = await prisma.attendance.findUnique({ where: { id: attendanceId } });
+  if (!attendance || !attendance.checkInTime || attendance.checkOutTime) {
+    return null; // allaqachon yopilgan yoki noto'g'ri holat - hech narsa qilmaymiz
+  }
+
+  const checkInMs = new Date(attendance.checkInTime).getTime();
+  const checkOutMs = scheduleEndDate.getTime();
+  let workedHours = Math.round(((checkOutMs - checkInMs) / (1000 * 60 * 60)) * 100) / 100;
+  if (workedHours < 0) workedHours = 0;
+
+  const updated = await prisma.attendance.update({
+    where: { id: attendanceId },
+    data: {
+      checkOutTime: scheduleEndDate,
+      workedHours,
+      earlyLeaveMinutes: 0,
+      overtimeHours: 0,
+    },
+  });
+
+  logger.info(
+    `Avtomatik smena yopish: ${attendance.userId} (attendance ${attendanceId}), ishlangan=${workedHours}s (jadval bo'yicha)`
+  );
+  googleSheetsService.syncAttendance(updated).catch(() => {});
+
+  return updated;
+};
+
 module.exports = {
   checkIn,
   checkOut,
@@ -660,4 +698,5 @@ module.exports = {
   getTodayStatus,
   getStats,
   adminUpsertAttendance,
+  autoCloseOverdueSession,
 };

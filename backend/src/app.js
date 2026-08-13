@@ -25,7 +25,7 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const adminRoutes = require('./routes/admin.routes');
 const payrollRoutes = require('./routes/payroll.routes');
 const pushRoutes = require('./routes/push.routes');
-const { startCheckoutReminderJob } = require('./jobs/checkoutReminder.job');
+const { startShiftReminderJob } = require('./jobs/shiftReminder.job');
 
 const app = express();
 
@@ -83,7 +83,7 @@ app.use(errorHandler);
 app.listen(config.port, '0.0.0.0', () => {
   console.log(`[BOOT] Server ${config.port}-portda (0.0.0.0) ishga tushdi [${config.nodeEnv}]`);
   logger.info(`Server ${config.port}-portda ishga tushdi [${config.nodeEnv}]`);
-  startCheckoutReminderJob();
+  startShiftReminderJob();
 });
 
 module.exports = app;

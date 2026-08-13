@@ -51,6 +51,15 @@ const localDayEnd = (date) => {
 // bo'ladi, natijada sana bir kunga orqaga siljib ko'rsatiladi.
 const localDateString = (date) => toLocalShifted(date).toISOString().split('T')[0];
 
+// Berilgan Toshkent kalendar kuni (`baseDate` - shu kunning istalgan lahzasi)
+// va shu kun boshidan necha daqiqa o'tganini (masalan jadval "22:00" ->
+// 1320) UTC instantga aylantiradi. `minutesOfDay` 1440 dan katta bo'lishi
+// mumkin (tungi smenalar uchun, masalan smena tugashi ertasi kunga
+// o'tganda) - bu holda avtomatik keyingi kunga "to'kiladi", chunki bu
+// oddiy millisekund arifmetikasi (vaqt zonasi konversiyasi shart emas).
+const localDateTimeFromMinutes = (baseDate, minutesOfDay) =>
+  new Date(localDayStart(baseDate).getTime() + minutesOfDay * 60000);
+
 module.exports = {
   TZ_OFFSET_MINUTES,
   localMinutesOfDay,
@@ -58,4 +67,5 @@ module.exports = {
   localDayStart,
   localDayEnd,
   localDateString,
+  localDateTimeFromMinutes,
 };
